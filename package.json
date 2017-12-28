@@ -21,8 +21,8 @@
     "jshint-stylish": "^2.2.1",
     "mocha": "^4.0.1",
     "modernizr": "3.5.0",
-    "node-sri": "^1.1.1",
     "normalize.css": "7.0.0",
+    "node-sri": "^1.1.1",
     "run-sequence": "^2.2.0",
     "strip-json-comments": "^2.0.1",
     "travis-after-all": "^1.4.5"
