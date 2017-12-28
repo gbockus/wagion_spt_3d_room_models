@@ -83,8 +83,8 @@ function getOpenings(roomObjects) {
     var openings = []
     for (const object of roomObjects) {
         if (object.typeIdentifier == "door" || object.typeIdentifier == "opening" || object.typeIdentifier == "window") {
-            var opening = parseSegmentsToCutout(object.segments)
-            openings.push(opening)
+            console.log(object.typeIdentifier)
+            openings.push(object)
         }
     }
     return openings
@@ -120,28 +120,100 @@ function parseSegmentsToFloorplan(segments) {
 function parseSegmentsToWalls(segments, ceilingHeight, openings) {
     walls = []
     for (const segment of segments) {
-        var vector = new THREE.Vector3(segment.x1 - segment.x0, segment.y1 - segment.y0, segment.z1 - segment.z0)
-        var distance = vector.distanceTo(new THREE.Vector3())
-        var geometry = new THREE.PlaneGeometry(distance, ceilingHeight)
-        var material = new THREE.MeshPhongMaterial({
-            color: 0x6083c2,
-            side: THREE.DoubleSide
-        })
-        material.transparent = true;
-        material.opacity = 0.5;
-        var wall = new THREE.Mesh(geometry, material);
-        // Position
-        wall.position.x = -(segment.x0 + segment.x1) / 2
-        wall.position.y = (segment.y0 + segment.y1) / 2
-        wall.position.z = ceilingHeight / 2
-        // Rotation
-        var angle = -Math.sign(vector.y) * vector.angleTo(new THREE.Vector3(1, 0, 0))
-        wall.rotation.x = Math.PI / 2;
-        wall.rotation.y = angle
-        // Add to array
+        var segmentOpenings = getOpeningsForSegment(segment, ceilingHeight, openings)
+        var wall = getWallFromSegment(segment, segmentOpenings)
         walls.push(wall)
     }
     return walls
+}
+
+function getOpeningsForSegment(segment, ceilingHeight, openings) {
+    var segmentOpenings = []
+    var segmentMinX = Math.min(segment.x0, segment.x1)
+    var segmentMaxX = Math.max(segment.x0, segment.x1)
+    var segmentMinY = Math.min(segment.y0, segment.y1)
+    var segmentMaxY = Math.max(segment.y0, segment.y1)
+    for (const opening of openings) {
+        var openingInWall = true
+        for (const openingSegments of opening.segments) {
+            if (!((openingSegments.x0 >= segmentMinX && openingSegments.x0 <= segmentMaxX)
+                && (openingSegments.x1 >= segmentMinX && openingSegments.x1 <= segmentMaxX)
+                && (openingSegments.y0 >= segmentMinY && openingSegments.y0 <= segmentMaxY)
+                && (openingSegments.y1 >= segmentMinY && openingSegments.y1 <= segmentMaxY))){
+                    openingInWall = false
+            }
+        }
+        if(openingInWall) {
+            console.log(opening.typeIdentifier)
+            segmentOpenings.push(opening)
+        }
+    }
+    console.log(segmentOpenings.length)
+    return segmentOpenings
+}
+
+function getWallFromSegment(segment, openings) {
+    // Width
+    var segmentVector = new THREE.Vector3(segment.x1 - segment.x0, segment.y1 - segment.y0, 0)
+    var width = segmentVector.distanceTo(new THREE.Vector3())
+    // Wall vertices
+    var positions = []
+    positions.push(new THREE.Vector2(0,0))
+    positions.push(new THREE.Vector2(width,0))
+    positions.push(new THREE.Vector2(width,ceilingHeight))
+    positions.push(new THREE.Vector2(0,ceilingHeight))
+    // Create shape
+    var shape = new THREE.Shape(positions);
+    // Add openings
+    shape = addHolesToShape(shape, segment, openings)
+    shape.closed = true
+    // Create geometry
+    var geometry = new THREE.ShapeGeometry(shape);
+    // Create material
+    const material = new THREE.MeshPhongMaterial({
+        color: 0x6083c2,
+        side: THREE.DoubleSide
+    })
+    material.transparent = true;
+    material.opacity = 0.5;
+    // Create mesh
+    var wall = new THREE.Mesh(geometry, material);
+    // Position
+    wall.position.x = -segment.x1
+    wall.position.y = segment.y1
+    wall.position.z = 0
+    // Rotation
+    var angle = -Math.sign(segmentVector.y) * segmentVector.angleTo(new THREE.Vector3(1, 0, 0))
+    wall.rotation.x = Math.PI / 2;
+    wall.rotation.y = angle
+
+    return wall
+}
+
+function addHolesToShape(shape, segment, openings) {
+    console.log(openings.length)
+    for(var opening of openings) {
+        var openingSegment0 = opening.segments[0]
+        var openingSegment1 = opening.segments[1]
+        var openingWidthVector = new THREE.Vector3(openingSegment0.x1 - openingSegment0.x0, openingSegment0.y1 - openingSegment0.y0, openingSegment0.z1 - openingSegment0.z0)
+        var width = openingWidthVector.distanceTo(new THREE.Vector3())
+        var openingHeightVector = new THREE.Vector3(openingSegment1.x1 - openingSegment1.x0, openingSegment1.y1 - openingSegment1.y0, openingSegment1.z1 - openingSegment1.z0)
+        var height = openingHeightVector.distanceTo(new THREE.Vector3())
+
+        var positions = []
+        positions.push(new THREE.Vector2(0,0))
+        positions.push(new THREE.Vector2(width,0))
+        positions.push(new THREE.Vector2(width,height))
+        positions.push(new THREE.Vector2(0,height))
+        positions.push(new THREE.Vector2(0,0))
+        // for(var [index, openingSegment] of opening.segments.entries()) {
+        //     if(index == 0) positions.push(new THREE.Vector2(openingSegment.x0, openingSegment.z0))
+        //     positions.push(new THREE.Vector2(openingSegment.x1, openingSegment.z1))
+        // }
+        var openingPath = new THREE.Path(positions);
+        shape.holes.push(openingPath)
+    }
+    return shape
 }
 
 function parseSegmentsToCutout(segments) {
