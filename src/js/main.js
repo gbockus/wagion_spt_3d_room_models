@@ -24,42 +24,82 @@ var plnarData = {
 // Preprocessing
 // Parse room data
 var roomData = JSON.parse(plnarData.rooms)
+if (roomData.length == 0) exit() // Bail if no rooms
 
-// scene
+// scene .. NOTE WILL MOVE LATER
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xa0a0a0);
 
-// Bail if no rooms
-if (roomData.length == 0) {
-    exit()
-}
-
 for (const room of roomData) {
-    // Bail if no objects
-    if (room.roomObjects.length == 0) exit()
-
-    // Ceiling Height
-    var ceilingHeight = room.ceilingHeight
+    if (room.roomObjects.length == 0) exit() // Bail if no objects
 
     // Create objects and add to scene
-    var floorElevation;
-    for (const object of room.roomObjects) {
+    var ceilingHeight = room.ceilingHeight
+    var floorElevation = getFloorElevation(room.roomObjects)
+    var floorPlan = buildFloorPlan(room.roomObjects)
+    var openings = getOpenings(room.roomObjects)
+    var walls =  buildWalls(room.roomObjects, ceilingHeight, openings)
+
+    addFloorplanToScene(scene, floorPlan)
+    addWallsToScene(scene, walls)
+
+    // for (const object of room.roomObjects) {
+    //     if (object.typeIdentifier == "floorPlan") {
+    //         var elevation = object.segments[0].z0
+    //         var floorPlan = parseSegmentsToFloorplan(object.segments)
+    //         addFloorplanToScene(scene, floorPlan)
+    //     } else if (object.typeIdentifier == "ceiling") {
+    //         var walls = parseSegmentsToWalls(object.segments, ceilingHeight)
+    //         addWallsToScene(scene, walls)
+    //     } else if (object.typeIdentifier == "door" || object.typeIdentifier == "opening") {
+    //         var cutout = parseSegmentsToCutout(object.segments)
+    //         addCutoutToScene(scene, cutout)
+    //     } else if (object.typeIdentifier == "window") {
+    //         //var window  = parseSegmentsToWindow(object.segments)
+    //         //addWindowToScene(scene, window)
+    //     }
+    // }
+}
+
+function getFloorElevation(roomObjects) {
+    for (const object of roomObjects) {
         if (object.typeIdentifier == "floorPlan") {
             var elevation = object.segments[0].z0
-            var floorPlan = parseSegmentsToFloorplan(object.segments)
-            addFloorplanToScene(scene, floorPlan)
-        } else if (object.typeIdentifier == "ceiling") {
-            var walls = parseSegmentsToWalls(object.segments, ceilingHeight)
-            addWallsToScene(scene, walls)
-        } else if (object.typeIdentifier == "door" || object.typeIdentifier == "opening") {
-            var cutout = parseSegmentsToCutout(object.segments)
-            addCutoutToScene(scene, cutout)
-        } else if (object.typeIdentifier == "window") {
-            //var window  = parseSegmentsToWindow(object.segments)
-            //addWindowToScene(scene, window)
+            return elevation
         }
     }
 }
+
+function buildFloorPlan(roomObjects) {
+    for (const object of roomObjects) {
+        if (object.typeIdentifier == "floorPlan") {
+            var floorPlan = parseSegmentsToFloorplan(object.segments)
+            return floorPlan
+        }
+    }
+}
+
+function getOpenings(roomObjects) {
+    var openings = []
+    for (const object of roomObjects) {
+        if (object.typeIdentifier == "door" || object.typeIdentifier == "opening" || object.typeIdentifier == "window") {
+            var opening = parseSegmentsToCutout(object.segments)
+            openings.push(opening)
+        }
+    }
+    return openings
+}
+
+function buildWalls(roomObjects, ceilingHeight, openings) {
+    var walls = []
+    for (const object of roomObjects) {
+        if (object.typeIdentifier == "ceiling") {
+            var walls = parseSegmentsToWalls(object.segments, ceilingHeight, openings)
+            return walls
+        }
+    }
+}
+
 
 function parseSegmentsToFloorplan(segments) {
     positions = []
@@ -77,13 +117,12 @@ function parseSegmentsToFloorplan(segments) {
     return floorPlan
 }
 
-function parseSegmentsToWalls(segments, ceilingHeight) {
+function parseSegmentsToWalls(segments, ceilingHeight, openings) {
     walls = []
     for (const segment of segments) {
         var vector = new THREE.Vector3(segment.x1 - segment.x0, segment.y1 - segment.y0, segment.z1 - segment.z0)
         var distance = vector.distanceTo(new THREE.Vector3())
         var geometry = new THREE.PlaneGeometry(distance, ceilingHeight)
-        //var material = new THREE.MeshBasicMaterial( {color: 0xffff00, side: THREE.DoubleSide} );
         var material = new THREE.MeshPhongMaterial({
             color: 0x6083c2,
             side: THREE.DoubleSide
