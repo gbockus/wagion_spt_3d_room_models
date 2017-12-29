@@ -35,39 +35,32 @@ for (const room of roomData) {
 
     // Create objects and add to scene
     var ceilingHeight = room.ceilingHeight
-    var floorElevation = getFloorElevation(room.roomObjects)
-    var floorPlan = buildFloorPlan(room.roomObjects)
-    var openings = getOpenings(room.roomObjects)
-    var walls =  buildWalls(room.roomObjects, ceilingHeight, openings)
+    var roomObjects = resetFloorElevation(room.roomObjects)
+    var floorPlan = buildFloorPlan(roomObjects)
+    var openings = getOpenings(roomObjects)
+    var walls =  buildWalls(roomObjects, ceilingHeight, openings)
 
     addFloorplanToScene(scene, floorPlan)
     addWallsToScene(scene, walls)
-
-    // for (const object of room.roomObjects) {
-    //     if (object.typeIdentifier == "floorPlan") {
-    //         var elevation = object.segments[0].z0
-    //         var floorPlan = parseSegmentsToFloorplan(object.segments)
-    //         addFloorplanToScene(scene, floorPlan)
-    //     } else if (object.typeIdentifier == "ceiling") {
-    //         var walls = parseSegmentsToWalls(object.segments, ceilingHeight)
-    //         addWallsToScene(scene, walls)
-    //     } else if (object.typeIdentifier == "door" || object.typeIdentifier == "opening") {
-    //         var cutout = parseSegmentsToCutout(object.segments)
-    //         addCutoutToScene(scene, cutout)
-    //     } else if (object.typeIdentifier == "window") {
-    //         //var window  = parseSegmentsToWindow(object.segments)
-    //         //addWindowToScene(scene, window)
-    //     }
-    // }
 }
 
-function getFloorElevation(roomObjects) {
+function resetFloorElevation(roomObjects) {
+    // Get elevation (z)
+    var elevation
     for (const object of roomObjects) {
         if (object.typeIdentifier == "floorPlan") {
-            var elevation = object.segments[0].z0
-            return elevation
+            elevation = object.segments[0].z0
+            break
         }
     }
+    // Reset elevations
+    for (var i=0; i < roomObjects.length; i++) {
+        for (var j=0; j < roomObjects[i].segments.length; j++) {
+            roomObjects[i].segments[j].z0 -= elevation
+            roomObjects[i].segments[j].z1 -= elevation
+        }
+    }
+    return roomObjects
 }
 
 function buildFloorPlan(roomObjects) {
@@ -148,7 +141,6 @@ function getOpeningsForSegment(segment, ceilingHeight, openings) {
             segmentOpenings.push(opening)
         }
     }
-    console.log(segmentOpenings.length)
     return segmentOpenings
 }
 
@@ -195,21 +187,22 @@ function addHolesToShape(shape, segment, openings) {
     for(var opening of openings) {
         var openingSegment0 = opening.segments[0]
         var openingSegment1 = opening.segments[1]
+        // Width
         var openingWidthVector = new THREE.Vector3(openingSegment0.x1 - openingSegment0.x0, openingSegment0.y1 - openingSegment0.y0, openingSegment0.z1 - openingSegment0.z0)
         var width = openingWidthVector.distanceTo(new THREE.Vector3())
+        // Height
         var openingHeightVector = new THREE.Vector3(openingSegment1.x1 - openingSegment1.x0, openingSegment1.y1 - openingSegment1.y0, openingSegment1.z1 - openingSegment1.z0)
         var height = openingHeightVector.distanceTo(new THREE.Vector3())
-
+        // Base position
+        var openingBaseVector = new THREE.Vector2(openingSegment0.x0 - segment.x0, openingSegment0.y0 - segment.y0)
+        var baseWidth =  openingBaseVector.distanceTo(new THREE.Vector2())
+        var baseHeight = Math.min(openingSegment0.z0, openingSegment1.z1)
         var positions = []
-        positions.push(new THREE.Vector2(0,0))
-        positions.push(new THREE.Vector2(width,0))
-        positions.push(new THREE.Vector2(width,height))
-        positions.push(new THREE.Vector2(0,height))
-        positions.push(new THREE.Vector2(0,0))
-        // for(var [index, openingSegment] of opening.segments.entries()) {
-        //     if(index == 0) positions.push(new THREE.Vector2(openingSegment.x0, openingSegment.z0))
-        //     positions.push(new THREE.Vector2(openingSegment.x1, openingSegment.z1))
-        // }
+        positions.push(new THREE.Vector2(baseWidth,baseHeight))
+        positions.push(new THREE.Vector2(baseWidth+width,baseHeight))
+        positions.push(new THREE.Vector2(baseWidth+width,baseHeight+height))
+        positions.push(new THREE.Vector2(baseWidth,baseHeight+height))
+        positions.push(new THREE.Vector2(baseWidth,baseHeight))
         var openingPath = new THREE.Path(positions);
         shape.holes.push(openingPath)
     }
@@ -337,4 +330,32 @@ function animate() {
 
 function render() {
     renderer.render(scene, camera);
+}
+
+////////////////////////////// EXPORT ///////////////////////////////////////////////////////////
+// Instantiate a exporter
+var exporter = new THREE.GLTFExporter();
+
+// Parse the input and generate the glTF output
+var options={}
+exporter.parse( scene, function ( gltf ) {
+    var output = JSON.stringify( gltf, null, 2 );
+    console.log( output );
+    saveString( output, 'scene.gltf' );
+}, options );
+
+// Savstring Function
+function saveString( text, filename ) {
+    save( new Blob( [ text ], { type: 'text/plain' } ), filename );
+}
+
+// Support
+var link = document.createElement( 'a' );
+link.style.display = 'none';
+document.body.appendChild( link ); // Firefox workaround, see #6594
+
+function save( blob, filename ) {
+    link.href = URL.createObjectURL( blob );
+    link.download = filename;
+    link.click();
 }
