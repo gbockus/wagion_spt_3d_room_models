@@ -104,7 +104,8 @@ function parseSegmentsToFloorplan(segments) {
     var geometry = new THREE.ShapeGeometry(shape);
     const material = new THREE.MeshPhongMaterial({
         color: 0x6083c2,
-        side: THREE.DoubleSide
+        side: THREE.DoubleSide,
+        wireframe: false
     })
     var floorPlan = new THREE.Mesh(geometry, material);
     return floorPlan
@@ -164,7 +165,8 @@ function getWallFromSegment(segment, openings) {
     // Create material
     const material = new THREE.MeshPhongMaterial({
         color: 0x6083c2,
-        side: THREE.DoubleSide
+        side: THREE.DoubleSide,
+        wireframe: false
     })
     material.transparent = true;
     material.opacity = 0.5;
@@ -183,7 +185,6 @@ function getWallFromSegment(segment, openings) {
 }
 
 function addHolesToShape(shape, segment, openings) {
-    console.log(openings.length)
     for(var opening of openings) {
         var openingSegment0 = opening.segments[0]
         var openingSegment1 = opening.segments[1]
@@ -209,69 +210,6 @@ function addHolesToShape(shape, segment, openings) {
     return shape
 }
 
-function parseSegmentsToCutout(segments) {
-    if (segments.length != 4) return
-    // Width
-    var widthVector = new THREE.Vector3(segments[0].x1 - segments[0].x0, segments[0].y1 - segments[0].y0, segments[0].z1 - segments[0].z0)
-    var width = widthVector.distanceTo(new THREE.Vector3())
-    // Height
-    var heightVector = new THREE.Vector3(segments[1].x1 - segments[1].x0, segments[1].y1 - segments[1].y0, segments[1].z1 - segments[1].z0)
-    var height = heightVector.distanceTo(new THREE.Vector3())
-    // Beometry, material, mesh
-    var geometry = new THREE.PlaneGeometry(width, height)
-    //var material = new THREE.MeshBasicMaterial( {color: 0xffff00, side: THREE.DoubleSide} );
-    var material = new THREE.MeshPhongMaterial({
-        color: 0xffffff,
-        side: THREE.DoubleSide
-    })
-    var cutout = new THREE.Mesh(geometry, material);
-    // Position
-    cutout.position.x = -(segments[0].x0 + segments[0].x1) / 2
-    cutout.position.y = (segments[0].y0 + segments[0].y1) / 2
-    cutout.position.z = (segments[1].z0 - segments[1].z1) / 2
-    // Rotation
-    var angle = -Math.sign(widthVector.y) * widthVector.angleTo(new THREE.Vector3(1, 0, 0))
-    cutout.rotation.x = Math.PI / 2;
-    cutout.rotation.y = angle
-    return cutout
-}
-
-function parseSegmentsToWindow(segments) {
-    if (segments.length != 4) return
-    // Width
-    var widthVector = new THREE.Vector3(segments[0].x1 - segments[0].x0, segments[0].y1 - segments[0].y0, segments[0].z1 - segments[0].z0)
-    var width = widthVector.distanceTo(new THREE.Vector3())
-    // Height
-    var heightVector = new THREE.Vector3(segments[1].x1 - segments[1].x0, segments[1].y1 - segments[1].y0, segments[1].z1 - segments[1].z0)
-    var height = heightVector.distanceTo(new THREE.Vector3())
-    // Beometry, material, mesh
-    var geometry = new THREE.PlaneGeometry(width, height)
-    //var material = new THREE.MeshBasicMaterial( {color: 0xffff00, side: THREE.DoubleSide} );
-    var material = new THREE.MeshPhongMaterial({
-        color: 0xffffff,
-        side: THREE.DoubleSide
-    })
-    var window = new THREE.Mesh(geometry, material);
-    // Position
-    window.position.x = -(segments[0].x0 + segments[0].x1) / 2
-    window.position.y = (segments[0].y0 + segments[0].y1) / 2
-    window.position.z = (segments[1].z0 + segments[1].z1) / 2
-    // Rotation
-    var angle = -Math.sign(widthVector.y) * widthVector.angleTo(new THREE.Vector3(1, 0, 0))
-    window.rotation.x = Math.PI / 2;
-    window.rotation.y = angle
-    return window
-}
-
-function parseSegmentsToWireFrame(segments, offset) {
-    positions = []
-    for (const [index, value] of segments.entries()) {
-        if (index == 0) positions.push(-value.x0, value.y0, value.z0 - offset) // NOTE Rick flipped y/z
-        positions.push(-value.x1, value.y1, value.z1 - offset)
-    }
-    return positions
-}
-
 function addFloorplanToScene(scene, floorPlan) {
     scene.add(floorPlan)
 }
@@ -280,14 +218,6 @@ function addWallsToScene(scene, walls) {
     for (const wall of walls) {
         scene.add(wall)
     }
-}
-
-function addCutoutToScene(scene, cutout) {
-    scene.add(cutout)
-}
-
-function addWindowToScene(scene, window) {
-    scene.add(window)
 }
 
 // camera
@@ -334,28 +264,28 @@ function render() {
 
 ////////////////////////////// EXPORT ///////////////////////////////////////////////////////////
 // Instantiate a exporter
-var exporter = new THREE.GLTFExporter();
-
-// Parse the input and generate the glTF output
-var options={}
-exporter.parse( scene, function ( gltf ) {
-    var output = JSON.stringify( gltf, null, 2 );
-    console.log( output );
-    saveString( output, 'scene.gltf' );
-}, options );
-
-// Savstring Function
-function saveString( text, filename ) {
-    save( new Blob( [ text ], { type: 'text/plain' } ), filename );
-}
-
-// Support
-var link = document.createElement( 'a' );
-link.style.display = 'none';
-document.body.appendChild( link ); // Firefox workaround, see #6594
-
-function save( blob, filename ) {
-    link.href = URL.createObjectURL( blob );
-    link.download = filename;
-    link.click();
-}
+// var exporter = new THREE.GLTFExporter();
+//
+// // Parse the input and generate the glTF output
+// var options={}
+// exporter.parse( scene, function ( gltf ) {
+//     var output = JSON.stringify( gltf, null, 2 );
+//     console.log( output );
+//     saveString( output, 'scene.gltf' );
+// }, options );
+//
+// // Savstring Function
+// function saveString( text, filename ) {
+//     save( new Blob( [ text ], { type: 'text/plain' } ), filename );
+// }
+//
+// // Support
+// var link = document.createElement( 'a' );
+// link.style.display = 'none';
+// document.body.appendChild( link ); // Firefox workaround, see #6594
+//
+// function save( blob, filename ) {
+//     link.href = URL.createObjectURL( blob );
+//     link.download = filename;
+//     link.click();
+// }
