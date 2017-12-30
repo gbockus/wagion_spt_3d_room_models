@@ -28,7 +28,7 @@ if (roomData.length == 0) exit(); // Bail if no rooms
 
 // scene .. NOTE WILL MOVE LATER
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);
+scene.background = new THREE.Color(0xD3D3D3);
 
 for (const room of roomData) {
     if (room.roomObjects.length == 0) exit(); // Bail if no objects
@@ -40,7 +40,7 @@ for (const room of roomData) {
     var openings = getOpenings(roomObjects);
     var walls =  buildWalls(roomObjects, ceilingHeight, openings);
 
-    addGroundToScene(scene)
+    //addGroundToScene(scene)
     addFloorplanToScene(scene, floorPlan);
     addWallsToScene(scene, walls)
 }
@@ -191,25 +191,22 @@ function addHolesToGeometry(geometry, segment, openings) {
         var baseWidth =  openingBaseVector.distanceTo(new THREE.Vector2());
         var baseHeight = Math.min(openingSegment0.z0, openingSegment1.z1);
         var positions = [];
-        positions.push(new THREE.Vector2(baseWidth,baseHeight));
-        positions.push(new THREE.Vector2(baseWidth+width,baseHeight));
-        positions.push(new THREE.Vector2(baseWidth+width,baseHeight+height));
-        positions.push(new THREE.Vector2(baseWidth,baseHeight+height));
-        positions.push(new THREE.Vector2(baseWidth,baseHeight));
+        positions.push(new THREE.Vector2(0,0));
+        positions.push(new THREE.Vector2(width, 0));
+        positions.push(new THREE.Vector2(width, height));
+        positions.push(new THREE.Vector2(0, height));
         // Create shape + geometry
         var openingShape = new THREE.Shape(positions);
         openingShape.closed = true;
-        //var openingGeometry = new THREE.ShapeGeometry(openingShape);
         var extrudeSettings = {
             amount			: 0.1,
             //steps			: 1,
             bevelEnabled	: false
         };
-        //var openingGeometry = new THREE.ExtrudeGeometry( openingShape, extrudeSettings );
-        var openingGeometry = new THREE.BoxGeometry( width, height, 0.1 );
+        var openingGeometry = new THREE.ExtrudeGeometry( openingShape, extrudeSettings );
         var openingMesh = new THREE.Mesh(openingGeometry);
-        openingMesh.position.x = (-segment.width + width)/2 + baseWidth
-        openingMesh.position.y = (-segment.height + height)/2 + baseHeight
+        openingMesh.position.x = -segment.width/2 + baseWidth
+        openingMesh.position.y = -segment.height/2 + baseHeight
         openingMesh.position.z = -0.005;
         var openingMeshBSP = new ThreeBSP(openingMesh);
         // CSG subtraction
@@ -284,7 +281,7 @@ function render() {
 }
 
 ////////////////////////////// EXPORT ///////////////////////////////////////////////////////////
-// Instantiate a exporter
+// //Instantiate exporter
 // var exporter = new THREE.GLTFExporter();
 //
 // // Parse the input and generate the glTF output
