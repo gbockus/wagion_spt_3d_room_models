@@ -28,7 +28,7 @@ if (roomData.length == 0) exit(); // Bail if no rooms
 
 // scene .. NOTE WILL MOVE LATER
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xa0a0a0);
+scene.background = new THREE.Color(0x87ceeb);
 
 for (const room of roomData) {
     if (room.roomObjects.length == 0) exit(); // Bail if no objects
@@ -40,6 +40,7 @@ for (const room of roomData) {
     var openings = getOpenings(roomObjects);
     var walls =  buildWalls(roomObjects, ceilingHeight, openings);
 
+    addGroundToScene(scene)
     addFloorplanToScene(scene, floorPlan);
     addWallsToScene(scene, walls)
 }
@@ -146,23 +147,12 @@ function getOpeningsForSegment(segment, ceilingHeight, openings) {
 }
 
 function getWallFromSegment(segment, openings) {
-    // Width
+    // Width and Height
     var segmentVector = new THREE.Vector3(segment.x1 - segment.x0, segment.y1 - segment.y0, 0);
-    var width = segmentVector.distanceTo(new THREE.Vector3());
-    // Wall vertices
-    var positions = [];
-    positions.push(new THREE.Vector2(0,0));
-    positions.push(new THREE.Vector2(width,0));
-    positions.push(new THREE.Vector2(width,ceilingHeight));
-    positions.push(new THREE.Vector2(0,ceilingHeight));
-    // Create shape
-    var shape = new THREE.Shape(positions);
-    // Add openings
-    //shape = addHolesToShape(shape, segment, openings)
-    shape.closed = true;
+    segment.width = segmentVector.distanceTo(new THREE.Vector3());
+    segment.height = ceilingHeight
     // Create geometry
-    var geometry = new THREE.ShapeGeometry(shape);
-    //var geometry = new THREE.BoxGeometry( width, ceilingHeight, 0.1 );
+    var geometry = new THREE.BoxGeometry( segment.width, segment.height, 0.002 );
     geometry = addHolesToGeometry(geometry, segment, openings);
     // Create material
     const material = new THREE.MeshPhongMaterial({
@@ -175,40 +165,15 @@ function getWallFromSegment(segment, openings) {
     // Create mesh
     var wall = new THREE.Mesh(geometry, material);
     // Position
-    wall.position.x = -segment.x1;
-    wall.position.y = segment.y1;
-    wall.position.z = 0;
+    wall.position.x = -(segment.x0+segment.x1)/2;
+    wall.position.y = (segment.y0+segment.y1)/2;
+    wall.position.z = ceilingHeight/2;
     // Rotation
     var angle = -Math.sign(segmentVector.y) * segmentVector.angleTo(new THREE.Vector3(1, 0, 0));
     wall.rotation.x = Math.PI / 2;
     wall.rotation.y = angle;
 
     return wall
-}
-
-function addHolesToShape(shape, segment, openings) {
-    for(var opening of openings) {
-        var openingSegment0 = opening.segments[0];
-        var openingSegment1 = opening.segments[1];
-        // Width
-        var openingWidthVector = new THREE.Vector3(openingSegment0.x1 - openingSegment0.x0, openingSegment0.y1 - openingSegment0.y0, openingSegment0.z1 - openingSegment0.z0);
-        var width = openingWidthVector.distanceTo(new THREE.Vector3());
-        // Height
-        var openingHeightVector = new THREE.Vector3(openingSegment1.x1 - openingSegment1.x0, openingSegment1.y1 - openingSegment1.y0, openingSegment1.z1 - openingSegment1.z0);
-        var height = openingHeightVector.distanceTo(new THREE.Vector3());
-        // Base position
-        var openingBaseVector = new THREE.Vector2(openingSegment0.x0 - segment.x0, openingSegment0.y0 - segment.y0);
-        var baseWidth =  openingBaseVector.distanceTo(new THREE.Vector2());
-        var baseHeight = Math.min(openingSegment0.z0, openingSegment1.z1);
-        var positions = [];
-        positions.push(new THREE.Vector2(baseWidth,baseHeight));
-        positions.push(new THREE.Vector2(baseWidth+width,baseHeight));
-        positions.push(new THREE.Vector2(baseWidth+width,baseHeight+height));
-        positions.push(new THREE.Vector2(baseWidth,baseHeight+height));
-        var openingPath = new THREE.Path(positions);
-        shape.holes.push(openingPath)
-    }
-    return shape
 }
 
 function addHolesToGeometry(geometry, segment, openings) {
@@ -235,16 +200,17 @@ function addHolesToGeometry(geometry, segment, openings) {
         var openingShape = new THREE.Shape(positions);
         openingShape.closed = true;
         //var openingGeometry = new THREE.ShapeGeometry(openingShape);
-
-        //var extrudeSettings = { amount: 0.0001};
         var extrudeSettings = {
             amount			: 0.1,
             //steps			: 1,
             bevelEnabled	: false
         };
-        var openingGeometry = new THREE.ExtrudeGeometry( openingShape, extrudeSettings );
+        //var openingGeometry = new THREE.ExtrudeGeometry( openingShape, extrudeSettings );
+        var openingGeometry = new THREE.BoxGeometry( width, height, 0.1 );
         var openingMesh = new THREE.Mesh(openingGeometry);
-        openingMesh.position.z = -0.05;
+        openingMesh.position.x = (-segment.width + width)/2 + baseWidth
+        openingMesh.position.y = (-segment.height + height)/2 + baseHeight
+        openingMesh.position.z = -0.005;
         var openingMeshBSP = new ThreeBSP(openingMesh);
         // CSG subtraction
         var mesh = new THREE.Mesh(geometry);
@@ -252,6 +218,9 @@ function addHolesToGeometry(geometry, segment, openings) {
         geometry = meshBSP.subtract(openingMeshBSP).toGeometry()
     }
     return geometry
+}
+
+function addGroundToScene(scene) {
 }
 
 function addFloorplanToScene(scene, floorPlan) {
