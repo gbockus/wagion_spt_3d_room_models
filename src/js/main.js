@@ -28,7 +28,6 @@ if (roomData.length == 0) exit(); // Bail if no rooms
 
 // scene .. NOTE WILL MOVE LATER
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xD3D3D3);
 
 for (const room of roomData) {
     if (room.roomObjects.length == 0) exit(); // Bail if no objects
@@ -40,7 +39,7 @@ for (const room of roomData) {
     var openings = getOpenings(roomObjects);
     var walls =  buildWalls(roomObjects, ceilingHeight, openings);
 
-    //addGroundToScene(scene)
+    addBackgroundToScene(scene)
     addFloorplanToScene(scene, floorPlan);
     addWallsToScene(scene, walls)
 }
@@ -217,15 +216,15 @@ function addHolesToGeometry(geometry, segment, openings) {
     return geometry
 }
 
-function addGroundToScene(scene) {
-    var geometry = new THREE.PlaneGeometry(1000.0, 1000.0)
-    var material = new THREE.MeshBasicMaterial({
-        color: 0xD3D3D3,
-        side: THREE.DoubleSide
-    })
-    var ground = new THREE.Mesh(geometry, material);
-    ground.position.z = -0.001
-    scene.add(ground)
+function addBackgroundToScene(scene) {
+    // var geometry = new THREE.PlaneBufferGeometry( 20000, 20000 );
+    // var material = new THREE.MeshPhongMaterial( { shininess: 0.1 } );
+    // var ground = new THREE.Mesh( geometry, material );
+    // ground.position.set( 0, 0, -250 );
+    // //ground.rotation.x = - Math.PI / 2;
+    // scene.add( ground );
+    //scene.fog = new THREE.Fog( 0xffffff, 100, 100 );
+    scene.background = new THREE.Color(0xD3D3D3);
 }
 
 function addFloorplanToScene(scene, floorPlan) {
