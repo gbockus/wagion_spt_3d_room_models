@@ -221,6 +221,14 @@ function addHolesToGeometry(geometry, segment, openings) {
 }
 
 function addGroundToScene(scene) {
+    var geometry = new THREE.PlaneGeometry(1000.0, 1000.0)
+    var material = new THREE.MeshBasicMaterial({
+        color: 0xD3D3D3,
+        side: THREE.DoubleSide
+    })
+    var ground = new THREE.Mesh(geometry, material);
+    ground.position.z = -0.001
+    scene.add(ground)
 }
 
 function addFloorplanToScene(scene, floorPlan) {
