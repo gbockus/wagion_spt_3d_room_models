@@ -29,22 +29,62 @@ if (roomData.length == 0) exit(); // Bail if no rooms
 // scene .. NOTE WILL MOVE LATER
 const scene = new THREE.Scene();
 
+const groundMaterial = new THREE.MeshPhongMaterial({
+    color: 0x98FB98,
+    shininess: 0.1,
+    opacity: 1
+});
+
+// FloorPlan Materials
+const floorMaterial = new THREE.MeshPhongMaterial({
+    color: 0x6083c2,
+    side: THREE.DoubleSide,
+    wireframe: false
+});
+
+// Wall Material
+const wallMaterial = new THREE.MeshPhongMaterial({
+    color: 0x6083c2,
+    side: THREE.DoubleSide,
+    wireframe: false
+});
+wallMaterial.transparent = true;
+wallMaterial.opacity = 0.5;
+
+// Door Material
+const doorMaterial = new THREE.MeshPhongMaterial({
+    color: 0xF5DEB3,
+    side: THREE.DoubleSide,
+    wireframe: false,
+    transparent: true,
+    opacity: 0.5
+});
+
+// Window Material
+const windowMaterial = new THREE.MeshPhongMaterial({
+    color: 0xC0C0C0,
+    side: THREE.DoubleSide,
+    wireframe: false,
+    transparent: true,
+    opacity: 0.2,
+    shininess: 100
+});
+
 for (const room of roomData) {
     if (room.roomObjects.length == 0) exit(); // Bail if no objects
 
     // Create objects and add to scene
     var ceilingHeight = room.ceilingHeight;
-    var roomObjects = resetFloorElevation(room.roomObjects);
-    var floorPlan = buildFloorPlan(roomObjects);
-    var openings = getOpenings(roomObjects);
-    var walls =  buildWalls(roomObjects, ceilingHeight, openings);
+    var roomObjects = preprocessObjects(room.roomObjects);
+    var floorPlan = buildFloorPlan(roomObjects); // Mesh
+    var walls =  buildWalls(roomObjects, ceilingHeight); // Mesh
 
     addBackgroundToScene(scene)
     addFloorplanToScene(scene, floorPlan);
     addWallsToScene(scene, walls)
 }
 
-function resetFloorElevation(roomObjects) {
+function preprocessObjects(roomObjects) {
     // Get elevation (z)
     var elevation;
     for (const object of roomObjects) {
@@ -76,17 +116,17 @@ function getOpenings(roomObjects) {
     var openings = [];
     for (const object of roomObjects) {
         if (object.typeIdentifier == "door" || object.typeIdentifier == "opening" || object.typeIdentifier == "window") {
-            console.log(object.typeIdentifier);
             openings.push(object)
         }
     }
     return openings
 }
 
-function buildWalls(roomObjects, ceilingHeight, openings) {
+function buildWalls(roomObjects, ceilingHeight) {
     var walls = [];
+    var openings = getOpenings(roomObjects); // Objects
     for (const object of roomObjects) {
-        if (object.typeIdentifier == "ceiling") {
+        if (object.typeIdentifier == "ceiling") { // Building walls from ceiling segments
             var walls = parseSegmentsToWalls(object.segments, ceilingHeight, openings);
             return walls
         }
@@ -102,12 +142,7 @@ function parseSegmentsToFloorplan(segments) {
     }
     var shape = new THREE.Shape(positions);
     var geometry = new THREE.ShapeGeometry(shape);
-    const material = new THREE.MeshPhongMaterial({
-        color: 0x6083c2,
-        side: THREE.DoubleSide,
-        wireframe: false
-    });
-    var floorPlan = new THREE.Mesh(geometry, material);
+    var floorPlan = new THREE.Mesh(geometry, floorMaterial);
     return floorPlan
 }
 
@@ -115,12 +150,13 @@ function parseSegmentsToWalls(segments, ceilingHeight, openings) {
     walls = [];
     for (const segment of segments) {
         var segmentOpenings = getOpeningsForSegment(segment, ceilingHeight, openings);
-        var wall = getWallFromSegment(segment, segmentOpenings);
+        var wall = buildWallFromSegment(segment, segmentOpenings);
         walls.push(wall)
     }
     return walls
 }
 
+// NOTE: Need to bring segmentID in from APP to make this more robust
 function getOpeningsForSegment(segment, ceilingHeight, openings) {
     var segmentOpenings = [];
     var segmentMinX = Math.min(segment.x0, segment.x1);
@@ -145,86 +181,136 @@ function getOpeningsForSegment(segment, ceilingHeight, openings) {
     return segmentOpenings
 }
 
-function getWallFromSegment(segment, openings) {
+function buildWallFromSegment(segment, openings) {
+    var wallGroup = new THREE.Group();
     // Width and Height
     var segmentVector = new THREE.Vector3(segment.x1 - segment.x0, segment.y1 - segment.y0, 0);
     segment.width = segmentVector.distanceTo(new THREE.Vector3());
     segment.height = ceilingHeight
-    // Create geometry
-    var geometry = new THREE.BoxGeometry( segment.width, segment.height, 0.002 );
-    geometry = addHolesToGeometry(geometry, segment, openings);
-    // Create material
-    const material = new THREE.MeshPhongMaterial({
-        color: 0x6083c2,
-        side: THREE.DoubleSide,
-        wireframe: false
-    });
-    material.transparent = true;
-    material.opacity = 0.5;
-    // Create mesh
-    var wall = new THREE.Mesh(geometry, material);
-    // Position
-    wall.position.x = -(segment.x0+segment.x1)/2;
-    wall.position.y = (segment.y0+segment.y1)/2;
-    wall.position.z = ceilingHeight/2;
+
+    // Walls
+    var wall = buildWallMesh(segment, openings);
+    wallGroup.add(wall)
+
+    // Doors
+    var doors = buildDoorMeshes(segment, openings);
+    wallGroup.add(doors)
+
+    // Windows
+    var windows = buildWindowMeshes(segment, openings);
+    wallGroup.add(windows)
+
+    // Position wall group
+    wallGroup.position.x = -(segment.x0+segment.x1)/2;
+    wallGroup.position.y = (segment.y0+segment.y1)/2;
+    wallGroup.position.z = ceilingHeight/2;
     // Rotation
     var angle = -Math.sign(segmentVector.y) * segmentVector.angleTo(new THREE.Vector3(1, 0, 0));
-    wall.rotation.x = Math.PI / 2;
-    wall.rotation.y = angle;
+    wallGroup.rotation.x = Math.PI / 2;
+    wallGroup.rotation.y = angle;
 
+    return wallGroup
+}
+
+function buildWallMesh(segment, openings) {
+    // Create geometry
+    var geometry = new THREE.BoxGeometry( segment.width, segment.height, 0.002 );
+    for (var opening of openings) {
+        geometry = addHoleToGeometry(geometry, segment, opening);
+    }
+    // Create mesh
+    var wall = new THREE.Mesh(geometry, wallMaterial);
     return wall
 }
 
-function addHolesToGeometry(geometry, segment, openings) {
-    for(var [index, opening] of openings.entries()) {
-        var openingSegment0 = opening.segments[0];
-        var openingSegment1 = opening.segments[1];
-        // Width
-        var openingWidthVector = new THREE.Vector3(openingSegment0.x1 - openingSegment0.x0, openingSegment0.y1 - openingSegment0.y0, openingSegment0.z1 - openingSegment0.z0);
-        var width = openingWidthVector.distanceTo(new THREE.Vector3());
-        // Height
-        var openingHeightVector = new THREE.Vector3(openingSegment1.x1 - openingSegment1.x0, openingSegment1.y1 - openingSegment1.y0, openingSegment1.z1 - openingSegment1.z0);
-        var height = openingHeightVector.distanceTo(new THREE.Vector3());
-        // Base position
-        var openingBaseVector = new THREE.Vector2(openingSegment0.x0 - segment.x0, openingSegment0.y0 - segment.y0);
-        var baseWidth =  openingBaseVector.distanceTo(new THREE.Vector2());
-        var baseHeight = Math.min(openingSegment0.z0, openingSegment1.z1);
-        var positions = [];
-        positions.push(new THREE.Vector2(0,0));
-        positions.push(new THREE.Vector2(width, 0));
-        positions.push(new THREE.Vector2(width, height));
-        positions.push(new THREE.Vector2(0, height));
-        // Create shape + geometry
-        var openingShape = new THREE.Shape(positions);
-        openingShape.closed = true;
-        var extrudeSettings = {
-            amount			: 0.1,
-            //steps			: 1,
-            bevelEnabled	: false
-        };
-        var openingGeometry = new THREE.ExtrudeGeometry( openingShape, extrudeSettings );
-        var openingMesh = new THREE.Mesh(openingGeometry);
-        openingMesh.position.x = -segment.width/2 + baseWidth
-        openingMesh.position.y = -segment.height/2 + baseHeight
-        openingMesh.position.z = -0.005;
-        var openingMeshBSP = new ThreeBSP(openingMesh);
-        // CSG subtraction
-        var mesh = new THREE.Mesh(geometry);
-        var meshBSP = new ThreeBSP(mesh);
-        geometry = meshBSP.subtract(openingMeshBSP).toGeometry()
+function buildDoorMeshes(segment, openings) {
+    var doorGroup = new THREE.Group();
+    for (opening of openings) {
+        if (opening.typeIdentifier == "door")  {
+            var doorGeometry = getEmbeddedObjectGeometry(opening, segment, 0.05)
+            //doorGeometry = addHoleToGeometry(doorGeometry, segment, openings) HERE
+            var door = new THREE.Mesh(doorGeometry.geometry, doorMaterial);
+            door.position.x = -segment.width/2 + doorGeometry.offsetX
+            door.position.y = -segment.height/2 + doorGeometry.offsetY
+            door.position.z = -0.025;
+
+            doorGroup.add(door)
+        }
     }
+    return doorGroup
+}
+
+function buildWindowMeshes(segment, openings) {
+    var windowGroup = new THREE.Group();
+    for (opening of openings) {
+        if (opening.typeIdentifier == "window")  {
+            var windowGeometry = getEmbeddedObjectGeometry(opening, segment, 0.05)
+            var window = new THREE.Mesh(windowGeometry.geometry, windowMaterial);
+            window.position.x = -segment.width/2 + windowGeometry.offsetX
+            window.position.y = -segment.height/2 + windowGeometry.offsetY
+            window.position.z = -0.025;
+
+            windowGroup.add(window)
+        }
+    }
+    return windowGroup
+}
+
+function addHoleToGeometry(geometry, segment, opening) {
+    var openingGeometry = getEmbeddedObjectGeometry(opening, segment, 0.1)
+    var openingMesh = new THREE.Mesh(openingGeometry.geometry);
+    openingMesh.position.x = -segment.width/2 + openingGeometry.offsetX
+    openingMesh.position.y = -segment.height/2 + openingGeometry.offsetY
+    openingMesh.position.z = -0.05;
+    var openingMeshBSP = new ThreeBSP(openingMesh);
+    // CSG subtraction
+    var mesh = new THREE.Mesh(geometry);
+    var meshBSP = new ThreeBSP(mesh);
+    geometry = meshBSP.subtract(openingMeshBSP).toGeometry()
     return geometry
 }
 
+function getEmbeddedObjectGeometry(object, segment, thickness) {
+    var objectSegment0 = object.segments[0];
+    var objectSegment1 = object.segments[1];
+    // Width
+    var objectWidthVector = new THREE.Vector3(objectSegment0.x1 - objectSegment0.x0, objectSegment0.y1 - objectSegment0.y0, objectSegment0.z1 - objectSegment0.z0);
+    var width = objectWidthVector.distanceTo(new THREE.Vector3());
+    // Height
+    var objectHeightVector = new THREE.Vector3(objectSegment1.x1 - objectSegment1.x0, objectSegment1.y1 - objectSegment1.y0, objectSegment1.z1 - objectSegment1.z0);
+    var height = objectHeightVector.distanceTo(new THREE.Vector3());
+    // Base position
+    var objectBaseVector = new THREE.Vector2(objectSegment0.x0 - segment.x0, objectSegment0.y0 - segment.y0);
+    var offsetX =  objectBaseVector.distanceTo(new THREE.Vector2());
+    var offsetY = Math.min(objectSegment0.z0, objectSegment1.z1);
+    var positions = [];
+    positions.push(new THREE.Vector2(0,0));
+    positions.push(new THREE.Vector2(width, 0));
+    positions.push(new THREE.Vector2(width, height));
+    positions.push(new THREE.Vector2(0, height));
+    // Create shape + geometry
+    var objectShape = new THREE.Shape(positions);
+    objectShape.closed = true;
+    var extrudeSettings = {
+        amount			: thickness,
+        //steps			: 1,
+        bevelEnabled	: false
+    };
+    return {
+        geometry: new THREE.ExtrudeGeometry(objectShape, extrudeSettings),
+        offsetX: offsetX,
+        offsetY: offsetY
+    }
+}
+
 function addBackgroundToScene(scene) {
-    // var geometry = new THREE.PlaneBufferGeometry( 20000, 20000 );
-    // var material = new THREE.MeshPhongMaterial( { shininess: 0.1 } );
-    // var ground = new THREE.Mesh( geometry, material );
-    // ground.position.set( 0, 0, -250 );
-    // //ground.rotation.x = - Math.PI / 2;
-    // scene.add( ground );
-    //scene.fog = new THREE.Fog( 0xffffff, 100, 100 );
-    scene.background = new THREE.Color(0xD3D3D3);
+    var geometry = new THREE.PlaneBufferGeometry( 20000, 20000 );
+    var ground = new THREE.Mesh( geometry, groundMaterial );
+    ground.position.set( 0, 0, -0.01 );
+    //ground.rotation.x = - Math.PI / 2;
+    scene.add( ground );
+    scene.fog = new THREE.Fog( 0xffffff, 0, 1000 );
+    scene.background = new THREE.Color(0xcce0ff);
 }
 
 function addFloorplanToScene(scene, floorPlan) {
@@ -239,10 +325,12 @@ function addWallsToScene(scene, walls) {
 
 // camera
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
-camera.position.set(0, 0, 20);
+camera.position.set(0, 0, 15);
 scene.add(camera);
 
 // light
+var ambientLight = new THREE.AmbientLight( 0x666666 )
+scene.add( ambientLight);
 var light = new THREE.PointLight(0xffffff, 0.8);
 camera.add(light);
 
@@ -261,15 +349,6 @@ const controls = new THREE.OrbitControls(camera, renderer.domElement);
 // Animate
 animate();
 
-window.addEventListener('resize', onResize);
-
-function onResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-
-}
-
 function animate() {
     requestAnimationFrame(animate);
     render();
@@ -278,6 +357,19 @@ function animate() {
 function render() {
     renderer.render(scene, camera);
 }
+
+// Handle zoom
+function onResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize( window.innerWidth, window.innerHeight );
+};
+
+$( document ).ready(function(){
+    onResize();
+    window.addEventListener('resize', onResize);
+});
+
 
 ////////////////////////////// EXPORT ///////////////////////////////////////////////////////////
 // //Instantiate exporter
