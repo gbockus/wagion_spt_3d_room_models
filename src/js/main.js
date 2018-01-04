@@ -2,52 +2,11 @@
 
 // Preprocessing
 // Parse room data
-var roomData = JSON.parse(plnarData.rooms);
+var roomData = JSON.parse(TXTAFoyer.rooms);
 if (roomData.length == 0) exit(); // Bail if no rooms
 
 // scene .. NOTE WILL MOVE LATER
 const scene = new THREE.Scene();
-
-const groundMaterial = new THREE.MeshPhongMaterial({
-    color: 0x98FB98,
-    shininess: 0.1,
-    opacity: 1
-});
-
-// FloorPlan Materials
-const floorMaterial = new THREE.MeshPhongMaterial({
-    color: 0x6083c2,
-    side: THREE.DoubleSide,
-    wireframe: false
-});
-
-// Wall Material
-const wallMaterial = new THREE.MeshPhongMaterial({
-    color: 0x6083c2,
-    side: THREE.DoubleSide,
-    wireframe: false
-});
-wallMaterial.transparent = true;
-wallMaterial.opacity = 0.5;
-
-// Door Material
-const doorMaterial = new THREE.MeshPhongMaterial({
-    color: 0xF5DEB3,
-    side: THREE.DoubleSide,
-    wireframe: false,
-    transparent: true,
-    opacity: 0.5
-});
-
-// Window Material
-const windowMaterial = new THREE.MeshPhongMaterial({
-    color: 0xC0C0C0,
-    side: THREE.DoubleSide,
-    wireframe: false,
-    transparent: true,
-    opacity: 0.2,
-    shininess: 100
-});
 
 for (const room of roomData) {
     if (room.roomObjects.length == 0) exit(); // Bail if no objects
@@ -57,10 +16,12 @@ for (const room of roomData) {
     var roomObjects = preprocessObjects(room.roomObjects);
     var floorPlan = buildFloorPlan(roomObjects); // Mesh
     var walls =  buildWalls(roomObjects, ceilingHeight); // Mesh
+    var objects =  buildObjects(roomObjects); // Mesh
 
     addBackgroundToScene(scene)
     addFloorplanToScene(scene, floorPlan);
     addWallsToScene(scene, walls)
+    addObjectsToScene(scene, objects)
 }
 
 function preprocessObjects(roomObjects) {
@@ -112,14 +73,49 @@ function buildWalls(roomObjects, ceilingHeight) {
     }
 }
 
+function buildObjects(roomObjects) {
+    var objectMeshes = [];
+    for (const object of roomObjects) {
+        if(!(object.typeIdentifier == "door"
+                || object.typeIdentifier == "opening"
+                || object.typeIdentifier == "window"
+                || object.typeIdentifier == "floorPlan"
+                || object.typeIdentifier == "ceiling")) {
+            console.log(object.typeIdentifier)
+            var objectGeometry = parseObjects(object)
+            var objectMesh = new THREE.Mesh(objectGeometry, objectMaterial)
+            objectMeshes.push(objectMesh)
+        }
+    }
+    return objectMeshes
+}
+
+function parseObjects(object) {
+    var positions = []
+    for ([index, segment] of object.segments.entries()) {
+        if(segment.positionIdentifier == "base")
+        positions.push(new THREE.Vector2(-segment.x1,segment.y1))
+    }
+    var shape = new THREE.Shape(positions);
+    shape.closed = true;
+    var geometry = new THREE.ShapeGeometry(shape);
+    var extrudeSettings = {
+        amount			: object.height,
+        steps			: 1,
+        bevelEnabled	: false
+    };
+    var geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    return geometry
+}
+
 
 function parseSegmentsToFloorplan(segments) {
     positions = [];
     for (const [index, value] of segments.entries()) {
-        if (index == 0) positions.push(new THREE.Vector2(-value.x0, value.y0)); // Height is z
         positions.push(new THREE.Vector2(-value.x1, value.y1))
     }
     var shape = new THREE.Shape(positions);
+    shape.closed = true;
     var geometry = new THREE.ShapeGeometry(shape);
     var floorPlan = new THREE.Mesh(geometry, floorMaterial);
     return floorPlan
@@ -185,7 +181,7 @@ function buildWallFromSegment(segment, openings) {
     // Rotation
     var angle = -Math.sign(segmentVector.y) * segmentVector.angleTo(new THREE.Vector3(1, 0, 0));
     wallGroup.rotation.x = Math.PI / 2;
-    wallGroup.rotation.y = angle;
+    wallGroup.rotation.y = angle + Math.PI;
 
     return wallGroup
 }
@@ -277,7 +273,6 @@ function buildWindowMeshes(segment, openings) {
 function addHoleToShape(shape, segment, opening) {
     var openingGeometry = getEmbeddedObjectGeometry(opening, segment, 0.1)
     var openingMesh = new THREE.Mesh(openingGeometry.geometry);
-    console.log(shape.geometry.type)
     if (shape.geometry.type == "BoxGeometry") {
         openingMesh.position.x = -segment.width / 2 + openingGeometry.offsetX
         openingMesh.position.y = -segment.height / 2 + openingGeometry.offsetY
@@ -349,6 +344,12 @@ function addWallsToScene(scene, walls) {
     }
 }
 
+function addObjectsToScene(scene, objects) {
+    for (const object of objects) {
+        scene.add(object)
+    }
+}
+
 // camera
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
 camera.position.set(0, 0, 15);
@@ -397,29 +398,30 @@ $( document ).ready(function(){
 });
 
 
-// ////////////////////////////// EXPORT ///////////////////////////////////////////////////////////
-// //Instantiate exporter
-// var exporter = new THREE.GLTFExporter();
-//
-// // Parse the input and generate the glTF output
-// var options={}
-// exporter.parse( scene, function ( gltf ) {
-//     var output = JSON.stringify( gltf, null, 2 );
-//     saveString( output, 'scene.gltf' );
-// }, options );
-//
-// // Savstring Function
-// function saveString( text, filename ) {
-//     save( new Blob( [ text ], { type: 'text/plain' } ), filename );
-// }
-//
-// // Support
-// var link = document.createElement( 'a' );
-// link.style.display = 'none';
-// document.body.appendChild( link ); // Firefox workaround, see #6594
-//
-// function save( blob, filename ) {
-//     link.href = URL.createObjectURL( blob );
-//     link.download = filename;
-//     link.click();
-// }
+////////////////////////////// EXPORT ///////////////////////////////////////////////////////////
+//Instantiate exporter
+var exporter = new THREE.GLTFExporter();
+
+// Parse the input and generate the glTF output
+var options={}
+exporter.parse( scene, function ( gltf ) {
+    var output = JSON.stringify( gltf, null, 2 );
+    saveString( output, 'scene.gltf' );
+}, options );
+
+// Savstring Function
+function saveString( text, filename ) {
+    save( new Blob( [ text ], { type: 'text/plain' } ), filename );
+}
+
+// Support
+var link = document.createElement( 'a' );
+link.style.display = 'none';
+document.body.appendChild( link ); // Firefox workaround, see #6594
+
+function save( blob, filename ) {
+    link.href = URL.createObjectURL( blob );
+    link.download = filename;
+    link.click();
+}
+
