@@ -2,8 +2,11 @@
 
 // Preprocessing
 // Parse room data
-var roomData = JSON.parse(TXTAFoyer.rooms);
+var roomData = JSON.parse(TXTAOffice2.rooms);
 if (roomData.length == 0) exit(); // Bail if no rooms
+
+// Global font
+var font;
 
 // scene .. NOTE WILL MOVE LATER
 const scene = new THREE.Scene();
@@ -110,15 +113,33 @@ function parseObjects(object) {
 
 
 function parseSegmentsToFloorplan(segments) {
+    var floorPlanGroup = new THREE.Group();
+
+    // Floorplan
     positions = [];
-    for (const [index, value] of segments.entries()) {
-        positions.push(new THREE.Vector2(-value.x1, value.y1))
+    for (const segment of segments) {
+        positions.push(new THREE.Vector2(-segment.x1, segment.y1)) // Note flip
     }
     var shape = new THREE.Shape(positions);
     shape.closed = true;
     var geometry = new THREE.ShapeGeometry(shape);
     var floorPlan = new THREE.Mesh(geometry, floorMaterial);
-    return floorPlan
+    floorPlanGroup.add(floorPlan)
+
+    // Labels
+    for (const segment of segments) {
+        createText(segment.distanceTag).then(function(textMesh) {
+            textMesh.position.x = -(segment.x0 + segment.x1)/2;
+            textMesh.position.y = (segment.y0 + segment.y1)/2;
+            textMesh.position.z = floorPlan.position.z + 0.001;
+            var segmentVector = new THREE.Vector3(segment.x1 - segment.x0, segment.y1 - segment.y0, 0);
+            var angle = -Math.sign(segmentVector.y) * segmentVector.angleTo(new THREE.Vector3(1, 0, 0));
+            textMesh.rotation.z = angle + Math.PI
+            floorPlanGroup.add(textMesh)
+        });
+    }
+
+    return floorPlanGroup
 }
 
 function parseSegmentsToWalls(segments, ceilingHeight, openings) {
@@ -350,6 +371,41 @@ function addObjectsToScene(scene, objects) {
     }
 }
 
+// Text
+
+function createText(text) {
+    return new Promise(function(resolve, reject) {
+        var font = loadFont().then(function (font) {
+            const textGeometry = createTextGeometry(text, font)
+            const textMaterial = new THREE.MeshStandardMaterial({color: 0x000000});
+            resolve(new THREE.Mesh(textGeometry, textMaterial));
+        });
+    });
+}
+
+function loadFont() {
+    return new Promise(function(resolve, reject){
+        if(font == undefined) {
+            var loader = new THREE.FontLoader();
+            loader.load('js/fonts/helvetiker_regular.typeface.json', function (response) {
+                resolve(response);
+            })
+        } else {
+            resolve(font)
+        }
+    })
+}
+
+function createTextGeometry(text, font) {
+    textGeometry = new THREE.TextGeometry( text, {
+        font: font,
+        size: 0.1,
+        height: 0
+    });
+    return textGeometry
+}
+
+
 // camera
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
 camera.position.set(0, 0, 15);
@@ -398,30 +454,39 @@ $( document ).ready(function(){
 });
 
 
-////////////////////////////// EXPORT ///////////////////////////////////////////////////////////
-//Instantiate exporter
-var exporter = new THREE.GLTFExporter();
-
-// Parse the input and generate the glTF output
-var options={}
-exporter.parse( scene, function ( gltf ) {
-    var output = JSON.stringify( gltf, null, 2 );
-    saveString( output, 'scene.gltf' );
-}, options );
+// ////////////////////////////// EXPORT ///////////////////////////////////////////////////////////
+// Support
+var link = document.createElement( 'a' );
+link.style.display = 'none';
+document.body.appendChild( link ); // Firefox workaround, see #6594
 
 // Savstring Function
 function saveString( text, filename ) {
     save( new Blob( [ text ], { type: 'text/plain' } ), filename );
 }
 
-// Support
-var link = document.createElement( 'a' );
-link.style.display = 'none';
-document.body.appendChild( link ); // Firefox workaround, see #6594
-
 function save( blob, filename ) {
     link.href = URL.createObjectURL( blob );
     link.download = filename;
     link.click();
 }
+
+
+// /////// GLTF
+// var exporter = new THREE.GLTFExporter();
+//
+// // Parse the input and generate the glTF output
+// var options={}
+// exporter.parse( scene, function ( gltf ) {
+//     var output = JSON.stringify( gltf, null, 2 );
+//     saveString( output, 'scene.gltf' );
+// }, options );
+
+// /////// OBJ
+// var exporter = new THREE.OBJExporter();
+// var result = exporter.parse( scene );
+// saveString( result, 'scene.obj' );
+
+
+
 
