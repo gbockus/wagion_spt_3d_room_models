@@ -1,6 +1,9 @@
 
-// MATERIALS
+// Constants
+const textSize = 0.1;
 
+
+// MATERIALS
 // Ground material
 const groundMaterial = new THREE.MeshPhongMaterial({
     color: 0x98FB98,

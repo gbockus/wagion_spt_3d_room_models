@@ -129,13 +129,21 @@ function parseSegmentsToFloorplan(segments) {
 
     // Labels
     for (const segment of segments) {
+        if(segment.distanceTag != undefined)
         createText(segment.distanceTag).then(function(textMesh) {
-            textMesh.position.x = -(segment.x0 + segment.x1)/2;
-            textMesh.position.y = (segment.y0 + segment.y1)/2;
-            textMesh.position.z = floorPlan.position.z + 0.001;
+            textMesh.geometry.computeBoundingBox()
+            var height = textMesh.geometry.boundingBox.max.y - textMesh.geometry.boundingBox.min.y
+            var width = textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x
             var segmentVector = new THREE.Vector3(segment.x1 - segment.x0, segment.y1 - segment.y0, 0);
+            segmentVector.normalize();
             var angle = -Math.sign(segmentVector.y) * segmentVector.angleTo(new THREE.Vector3(1, 0, 0));
-            textMesh.rotation.z = angle + Math.PI
+            textMesh.rotation.z = angle + Math.PI;
+            var normalVector = segmentVector.clone();
+            normalVector.cross(new THREE.Vector3(0, 0, 1))
+            console.log(segmentVector, normalVector)
+            textMesh.position.x = -((segment.x0 + segment.x1 - segmentVector.x * width)/2 - normalVector.x * 1.5 * height);
+            textMesh.position.y = (segment.y0 + segment.y1 - segmentVector.y * width)/2 - normalVector.y * 1.5 * height;
+            textMesh.position.z = floorPlan.position.z + 0.001;
             floorPlanGroup.add(textMesh)
         });
     }
@@ -347,7 +355,7 @@ function getEmbeddedObjectGeometry(object, segment, thickness) {
 }
 
 function addBackgroundToScene(scene) {
-    var geometry = new THREE.PlaneBufferGeometry( 15, 15 );
+    var geometry = new THREE.PlaneBufferGeometry( 35, 35 );
     var ground = new THREE.Mesh( geometry, groundMaterial );
     ground.position.set( 0, 0, -0.01 );
     //ground.rotation.x = - Math.PI / 2;
@@ -400,23 +408,11 @@ function loadFont() {
 function createTextGeometry(text, font) {
     textGeometry = new THREE.TextGeometry( text, {
         font: font,
-        size: 0.1,
+        size: textSize,
         height: 0
     });
     return textGeometry
 }
-
-
-// camera
-const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
-camera.position.set(0, 0, 15);
-scene.add(camera);
-
-// light
-var ambientLight = new THREE.AmbientLight( 0x666666 )
-scene.add( ambientLight);
-var light = new THREE.PointLight(0xffffff, 0.8);
-camera.add(light);
 
 // renderer
 const renderer = new THREE.WebGLRenderer({
@@ -427,8 +423,18 @@ renderer.setClearColor(0x20252f);
 renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
 
-// controls
+// camera
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
+camera.position.set(0, 0, 15);
+scene.add(camera);
+
+// light
+var ambientLight = new THREE.AmbientLight( 0x666666 )
+scene.add( ambientLight);
+var light = new THREE.PointLight(0xffffff, 0.8);
+camera.add(light);
+
 
 // Animate
 animate();
