@@ -2,7 +2,7 @@
 
 // Preprocessing
 // Parse room data
-var roomData = JSON.parse(TXTAOffice2.rooms);
+var roomData = JSON.parse(andyOffice.rooms);
 if (roomData.length == 0) exit(); // Bail if no rooms
 
 // Global font
@@ -102,8 +102,9 @@ function parseObjects(object) {
     var shape = new THREE.Shape(positions);
     shape.closed = true;
     var geometry = new THREE.ShapeGeometry(shape);
+
     var extrudeSettings = {
-        amount			: object.height,
+        amount			: (object.height == undefined) ? 0.001 : object.height,
         steps			: 1,
         bevelEnabled	: false
     };
