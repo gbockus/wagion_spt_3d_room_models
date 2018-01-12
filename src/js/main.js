@@ -140,7 +140,6 @@ function parseSegmentsToFloorplan(segments) {
             textMesh.rotation.z = angle + Math.PI;
             var normalVector = segmentVector.clone();
             normalVector.cross(new THREE.Vector3(0, 0, 1))
-            console.log(segmentVector, normalVector)
             textMesh.position.x = -((segment.x0 + segment.x1 - segmentVector.x * width)/2 - normalVector.x * 1.5 * height);
             textMesh.position.y = (segment.y0 + segment.y1 - segmentVector.y * width)/2 - normalVector.y * 1.5 * height;
             textMesh.position.z = floorPlan.position.z + 0.001;
@@ -322,24 +321,24 @@ function addHoleToShape(shape, segment, opening) {
 }
 
 function getEmbeddedObjectGeometry(object, segment, thickness) {
-    var objectSegment0 = object.segments[0];
-    var objectSegment1 = object.segments[1];
-    // Width
-    var objectWidthVector = new THREE.Vector3(objectSegment0.x1 - objectSegment0.x0, objectSegment0.y1 - objectSegment0.y0, objectSegment0.z1 - objectSegment0.z0);
-    var width = objectWidthVector.distanceTo(new THREE.Vector3());
-    // Height
-    var objectHeightVector = new THREE.Vector3(objectSegment1.x1 - objectSegment1.x0, objectSegment1.y1 - objectSegment1.y0, objectSegment1.z1 - objectSegment1.z0);
-    var height = objectHeightVector.distanceTo(new THREE.Vector3());
-    // Base position
-    var objectBaseVector = new THREE.Vector2(objectSegment0.x0 - segment.x0, objectSegment0.y0 - segment.y0);
-    var offsetX =  objectBaseVector.distanceTo(new THREE.Vector2());
-    var offsetY = Math.min(objectSegment0.z0, objectSegment1.z1);
+    const baseX = object.segments[0].x0;
+    const baseY = object.segments[0].y0;
+    var baseZ = object.segments[0].z0;
+    // Create shape
     var positions = [];
-    positions.push(new THREE.Vector2(0,0));
-    positions.push(new THREE.Vector2(width, 0));
-    positions.push(new THREE.Vector2(width, height));
-    positions.push(new THREE.Vector2(0, height));
-    // Create shape + geometry
+    for ([index, objectSegment] of object.segments.entries()) {
+        if(index == 0) {
+            var x0 = (new THREE.Vector2(objectSegment.x0-baseX, objectSegment.y0-baseY)).distanceTo(new THREE.Vector2());
+            var y0 = objectSegment.z0 - baseZ
+            positions.push(new THREE.Vector2(x0, y0));
+        }
+        var objectVector = new THREE.Vector2(objectSegment.x1-baseX, objectSegment.y1-baseY)
+        var sign = Math.sign(objectSegment.x1-baseX); // Need sign to set distance vector in right direction
+        var x1 = sign*objectVector.distanceTo(new THREE.Vector2());
+        var y1 = objectSegment.z1 - baseZ
+        positions.push(new THREE.Vector2(x1, y1));
+    }
+    // Create geometry
     var objectShape = new THREE.Shape(positions);
     objectShape.closed = true;
     var extrudeSettings = {
@@ -347,8 +346,14 @@ function getEmbeddedObjectGeometry(object, segment, thickness) {
         steps			: 1,
         bevelEnabled	: false
     };
+    var objectGeometry = new THREE.ExtrudeGeometry(objectShape, extrudeSettings);
+    // Get offset position
+    var objectBaseVector = new THREE.Vector2(baseX - segment.x0, baseY - segment.y0);
+    var offsetX =  objectBaseVector.distanceTo(new THREE.Vector2());
+    var offsetY = baseZ;
+    // Return
     return {
-        geometry: new THREE.ExtrudeGeometry(objectShape, extrudeSettings),
+        geometry: objectGeometry,
         offsetX: offsetX,
         offsetY: offsetY
     }
