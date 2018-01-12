@@ -321,7 +321,10 @@ function addHoleToShape(shape, segment, opening) {
 }
 
 function getEmbeddedObjectGeometry(object, segment, thickness) {
-
+    // Rotation
+    var segmentVector = new THREE.Vector3(segment.x1 - segment.x0, segment.y1 - segment.y0, 0);
+    var angle = -Math.sign(segmentVector.y)*segmentVector.angleTo(new THREE.Vector3(1, 0, 0));
+    // Offsets
     const baseX = object.segments[0].x0;
     const baseY = object.segments[0].y0;
     const baseZ = object.segments[0].z0;
@@ -335,7 +338,7 @@ function getEmbeddedObjectGeometry(object, segment, thickness) {
         }
         var objectVector = new THREE.Vector2(objectSegment.x1-baseX, objectSegment.y1-baseY)
         var sign = Math.sign(objectSegment.x1-baseX); // Need sign to set distance vector in right direction
-        var x1 = sign*objectVector.distanceTo(new THREE.Vector2());
+        var x1 = Math.cos(angle)*(objectSegment.x1-baseX) - Math.sin(angle)*(objectSegment.y1-baseY);
         var y1 = objectSegment.z1 - baseZ
         positions.push(new THREE.Vector2(x1, y1));
     }
@@ -349,8 +352,7 @@ function getEmbeddedObjectGeometry(object, segment, thickness) {
     };
     var objectGeometry = new THREE.ExtrudeGeometry(objectShape, extrudeSettings);
     // Get offset position
-    var objectBaseVector = new THREE.Vector2(baseX - segment.x0, baseY - segment.y0);
-    var offsetX =  objectBaseVector.distanceTo(new THREE.Vector2());
+    var offsetX = Math.cos(angle)*(baseX - segment.x0) - Math.sin(angle)*(baseY - segment.y0);
     var offsetY = baseZ;
     // Return
     return {
