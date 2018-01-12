@@ -321,9 +321,10 @@ function addHoleToShape(shape, segment, opening) {
 }
 
 function getEmbeddedObjectGeometry(object, segment, thickness) {
+
     const baseX = object.segments[0].x0;
     const baseY = object.segments[0].y0;
-    var baseZ = object.segments[0].z0;
+    const baseZ = object.segments[0].z0;
     // Create shape
     var positions = [];
     for ([index, objectSegment] of object.segments.entries()) {
