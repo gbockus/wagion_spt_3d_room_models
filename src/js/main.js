@@ -507,19 +507,31 @@ function createTextGeometry(text, font) {
 }
 
 // renderer
-const renderer = new THREE.WebGLRenderer({
-    antialias: true
-});
+const renderer = new THREE.WebGLRenderer({antialias: true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x20252f);
 renderer.setPixelRatio(window.devicePixelRatio);
 document.body.appendChild(renderer.domElement);
+function render() {
+    renderer.render(scene, camera);
+}
 
 // camera
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
-const controls = new THREE.OrbitControls(camera, renderer.domElement);
 camera.position.set(0, 0, 15);
 scene.add(camera);
+
+// Controls
+const controls = new THREE.TrackballControls( camera );
+controls.rotateSpeed = 5.0;
+controls.zoomSpeed = 20.2;
+controls.panSpeed = 3.0;
+controls.noZoom = false;
+controls.noPan = false;
+controls.staticMoving = true;
+controls.dynamicDampingFactor = 0.3;
+controls.keys = [ 65, 83, 68 ];
+controls.addEventListener( 'change', render );
 
 // light
 var ambientLight = new THREE.AmbientLight( 0x666666 )
@@ -533,11 +545,8 @@ animate();
 
 function animate() {
     requestAnimationFrame(animate);
+    controls.update();
     render();
-}
-
-function render() {
-    renderer.render(scene, camera);
 }
 
 // Handle zoom
@@ -545,6 +554,8 @@ function onResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize( window.innerWidth, window.innerHeight );
+    controls.handleResize();
+    render();
 };
 
 $( document ).ready(function(){
