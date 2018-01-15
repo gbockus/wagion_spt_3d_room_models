@@ -71,9 +71,9 @@ function buildWalls(roomObjects, ceilingHeight) {
     for (const object of roomObjects) {
         if (object.typeIdentifier == "ceiling") { // Building walls from ceiling segments
             var walls = parseSegmentsToWalls(object.segments, ceilingHeight, openings);
-            return walls
         }
     }
+    return walls
 }
 
 function buildObjects(roomObjects) {
@@ -85,31 +85,117 @@ function buildObjects(roomObjects) {
                 || object.typeIdentifier == "floorPlan"
                 || object.typeIdentifier == "ceiling")) {
             console.log(object.typeIdentifier)
-            var objectGeometry = parseObjects(object)
-            var objectMesh = new THREE.Mesh(objectGeometry, objectMaterial)
+            var objectMesh
+            if(object.orientationIdentifier == "horizontal") {
+                objectMesh = parseHorizontalObject(object)
+            } else if (object.orientationIdentifier == "vertical") {
+                objectMesh = parseVerticalObject(object)
+            }
             objectMeshes.push(objectMesh)
         }
     }
     return objectMeshes
 }
 
-function parseObjects(object) {
+function parseHorizontalObject(object) {
     var positions = []
     for ([index, segment] of object.segments.entries()) {
-        if(segment.positionIdentifier == "base")
-        positions.push(new THREE.Vector2(-segment.x1,segment.y1))
+        if(segment.positionIdentifier == "base") {
+            positions.push(new THREE.Vector2(-segment.x1, segment.y1))
+        }
     }
     var shape = new THREE.Shape(positions);
     shape.closed = true;
-    var geometry = new THREE.ShapeGeometry(shape);
-
     var extrudeSettings = {
         amount			: (object.height == undefined) ? 0.001 : object.height,
         steps			: 1,
         bevelEnabled	: false
     };
     var geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-    return geometry
+    var mesh = new THREE.Mesh(geometry, objectMaterial)
+    return mesh
+}
+
+function parseVerticalObject(object) {
+    // Rotation
+    segments = getSegmentsVerticalObject(object)
+    const segmentVector = new THREE.Vector3(segments.max.x1 - segments.min.x0, segments.max.y1 - segments.min.y0, 0);
+    const angle = -Math.sign(segmentVector.y)*segmentVector.angleTo(new THREE.Vector3(1, 0, 0));
+    // Shape
+    var positions = [];
+    for ([index, segment] of object.segments.entries()) {
+        if(segment.positionIdentifier == "base") {
+            if(index == 0) {
+                var x0 = Math.cos(angle)*(segment.x0-segments.min.x0) - Math.sin(angle)*(segment.y0-segments.min.y0);
+                var y0 = segment.z0 - segments.min.z0
+                positions.push(new THREE.Vector2(x0, y0));
+            }
+
+            var x1 = Math.cos(angle)*(segment.x1-segments.min.x0) - Math.sin(angle)*(segment.y1-segments.min.y0);
+            var y1 = segment.z1 - segments.min.z0
+            positions.push(new THREE.Vector2(x1, y1));
+        }
+    }
+    var shape = new THREE.Shape(positions);
+    shape.closed = true;
+    var extrudeSettings = {
+        amount			: 0.001,
+        steps			: 1,
+        bevelEnabled	: false
+    };
+    //Geometry
+    var geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    // Mesh
+    var mesh = new THREE.Mesh(geometry, objectMaterial)
+    mesh.rotation.x = Math.PI / 2;
+    mesh.rotation.y = angle;
+    mesh.position.x = -segments.min.x0; // Note X flip
+    mesh.position.y = segments.min.y0;
+    mesh.position.z = segments.min.z0;
+    return mesh
+}
+
+function getSegmentsVerticalObject(object) {
+    var segmentMin, segmentMax;
+    var distance = 0;
+    for ([index, segment] of object.segments.entries()) {
+        if(index == 0) {
+            segmentMin = segment
+        }
+        var segmentVector = new THREE.Vector3(segment.x1 - segmentMin.x0, segment.y1 - segmentMin.y0, 0);
+        var testDistance = segmentVector.distanceTo(new THREE.Vector3());
+        if(testDistance > distance) {
+            distance = testDistance;
+            segmentMax = segment
+        }
+    }
+    return{
+        min: segmentMin,
+        max: segmentMax
+    }
+}
+
+// NOTE: Need to bring segmentID in from APP to make this more robust
+function getSegmentForObject(object) {
+    var objectMinX = Math.min(segment.x0, segment.x1);
+    var objectMaxX = Math.max(segment.x0, segment.x1);
+    var objectMinY = Math.min(segment.y0, segment.y1);
+    var objectMaxY = Math.max(segment.y0, segment.y1);
+    for (const opening of openings) {
+        var openingInWall = true;
+        for (const openingSegments of opening.segments) {
+            if (!((openingSegments.x0 >= segmentMinX && openingSegments.x0 <= segmentMaxX)
+                    && (openingSegments.x1 >= segmentMinX && openingSegments.x1 <= segmentMaxX)
+                    && (openingSegments.y0 >= segmentMinY && openingSegments.y0 <= segmentMaxY)
+                    && (openingSegments.y1 >= segmentMinY && openingSegments.y1 <= segmentMaxY))){
+                openingInWall = false
+            }
+        }
+        if(openingInWall) {
+            segmentOpenings.push(opening)
+        }
+    }
+    return segmentOpenings
 }
 
 
@@ -336,8 +422,6 @@ function getEmbeddedObjectGeometry(object, segment, thickness) {
             var y0 = objectSegment.z0 - baseZ
             positions.push(new THREE.Vector2(x0, y0));
         }
-        var objectVector = new THREE.Vector2(objectSegment.x1-baseX, objectSegment.y1-baseY)
-        var sign = Math.sign(objectSegment.x1-baseX); // Need sign to set distance vector in right direction
         var x1 = Math.cos(angle)*(objectSegment.x1-baseX) - Math.sin(angle)*(objectSegment.y1-baseY);
         var y1 = objectSegment.z1 - baseZ
         positions.push(new THREE.Vector2(x1, y1));
