@@ -98,12 +98,18 @@ function buildObjects(roomObjects) {
 }
 
 function parseHorizontalObject(object) {
-    var positions = []
+    var objectGroup = new THREE.Group();
+    var positions = [];
+    var xMed=0, yMed=0, zMed=0, counter=0;
     for ([index, segment] of object.segments.entries()) {
         if(segment.positionIdentifier == "base") {
             positions.push(new THREE.Vector2(-segment.x1, segment.y1))
+            xMed+=segment.x0;
+            yMed+=segment.y0;
+            counter++;
         }
     }
+    zMed=(object.height == undefined) ? 0.001 : object.height
     var shape = new THREE.Shape(positions);
     shape.closed = true;
     var extrudeSettings = {
@@ -113,33 +119,58 @@ function parseHorizontalObject(object) {
     };
     var geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
     var mesh = new THREE.Mesh(geometry, objectMaterial)
-    return mesh
+    objectGroup.add(mesh)
+    // Label
+    var tag = (object.name == undefined) ? object.typeIdentifier : object.name;
+    if(tag != undefined) {
+        var tangentVector = new THREE.Vector3(1, 0, 0)
+        var normalVector = new THREE.Vector3(0, 0, 1)
+        createText(tag).then(function(textMesh) {
+            textMesh.geometry.computeBoundingBox()
+            var height = textMesh.geometry.boundingBox.max.y - textMesh.geometry.boundingBox.min.y
+            var width = textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x
+            textMesh.position.x = -(xMed/counter + width/2);
+            textMesh.position.y = yMed/counter;
+            textMesh.position.z = zMed+0.001;
+            objectGroup.add(textMesh)
+        });
+    }
+    return objectGroup;
 }
 
 function parseVerticalObject(object) {
+    var objectGroup = new THREE.Group();
     // Rotation
     segments = getSegmentsVerticalObject(object)
-    const segmentVector = new THREE.Vector3(segments.max.x1 - segments.min.x0, segments.max.y1 - segments.min.y0, 0);
-    const angle = -Math.sign(segmentVector.y)*segmentVector.angleTo(new THREE.Vector3(1, 0, 0));
+    const tangentVector = new THREE.Vector3(segments.max.x1 - segments.min.x0, segments.max.y1 - segments.min.y0, 0);
+    const angle = -Math.sign(tangentVector.y)*tangentVector.angleTo(new THREE.Vector3(1, 0, 0));
     // Shape
     var positions = [];
+    var xMed=0, yMed=0, zMed=0, counter=0;
     for ([index, segment] of object.segments.entries()) {
         if(segment.positionIdentifier == "base") {
             if(index == 0) {
                 var x0 = Math.cos(angle)*(segment.x0-segments.min.x0) - Math.sin(angle)*(segment.y0-segments.min.y0);
                 var y0 = segment.z0 - segments.min.z0
                 positions.push(new THREE.Vector2(x0, y0));
+                xMed+=segment.x0;
+                yMed+=segment.y0;
+                zMed+=segment.z0;
+                counter++;
             }
-
             var x1 = Math.cos(angle)*(segment.x1-segments.min.x0) - Math.sin(angle)*(segment.y1-segments.min.y0);
             var y1 = segment.z1 - segments.min.z0
             positions.push(new THREE.Vector2(x1, y1));
+            xMed+=segment.x1;
+            yMed+=segment.y1;
+            zMed+=segment.z1;
+            counter++;
         }
     }
     var shape = new THREE.Shape(positions);
     shape.closed = true;
     var extrudeSettings = {
-        amount			: 0.001,
+        amount			: -0.001,
         steps			: 1,
         bevelEnabled	: false
     };
@@ -148,25 +179,47 @@ function parseVerticalObject(object) {
     // Mesh
     var mesh = new THREE.Mesh(geometry, objectMaterial)
     mesh.rotation.x = Math.PI / 2;
-    mesh.rotation.y = angle;
+    mesh.rotation.y = angle + Math.PI;
     mesh.position.x = -segments.min.x0; // Note X flip
     mesh.position.y = segments.min.y0;
     mesh.position.z = segments.min.z0;
-    return mesh
+    objectGroup.add(mesh)
+    // Label
+    var tag = (object.name == undefined) ? object.typeIdentifier : object.name;
+    if(tag != undefined) {
+        tangentVector.normalize()
+        var normalVector = tangentVector.clone();
+        normalVector.cross(new THREE.Vector3(0, 0, 1))
+        createText(tag).then(function(textMesh) {
+            textMesh.geometry.computeBoundingBox()
+            var height = textMesh.geometry.boundingBox.max.y - textMesh.geometry.boundingBox.min.y
+            var width = textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x
+            textMesh.rotation.x = Math.PI/2;
+            textMesh.rotation.y = angle + Math.PI;
+            textMesh.position.x = -(xMed/counter - tangentVector.x*width/2 - normalVector.x*0.01);
+            textMesh.position.y = yMed/counter - tangentVector.y*width/2 - normalVector.y*0.01;
+            textMesh.position.z = zMed/counter - height
+            objectGroup.add(textMesh)
+        });
+    }
+    return objectGroup
 }
+
 
 function getSegmentsVerticalObject(object) {
     var segmentMin, segmentMax;
     var distance = 0;
     for ([index, segment] of object.segments.entries()) {
-        if(index == 0) {
-            segmentMin = segment
-        }
-        var segmentVector = new THREE.Vector3(segment.x1 - segmentMin.x0, segment.y1 - segmentMin.y0, 0);
-        var testDistance = segmentVector.distanceTo(new THREE.Vector3());
-        if(testDistance > distance) {
-            distance = testDistance;
-            segmentMax = segment
+        if(segment.positionIdentifier == "base") {
+            if (index == 0) {
+                segmentMin = segment
+            }
+            var segmentVector = new THREE.Vector3(segment.x1 - segmentMin.x0, segment.y1 - segmentMin.y0, 0);
+            var testDistance = segmentVector.distanceTo(new THREE.Vector3());
+            if (testDistance > distance) {
+                distance = testDistance;
+                segmentMax = segment
+            }
         }
     }
     return{
@@ -215,22 +268,23 @@ function parseSegmentsToFloorplan(segments) {
 
     // Labels
     for (const segment of segments) {
-        if(segment.distanceTag != undefined)
-        createText(segment.distanceTag).then(function(textMesh) {
-            textMesh.geometry.computeBoundingBox()
-            var height = textMesh.geometry.boundingBox.max.y - textMesh.geometry.boundingBox.min.y
-            var width = textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x
-            var segmentVector = new THREE.Vector3(segment.x1 - segment.x0, segment.y1 - segment.y0, 0);
-            segmentVector.normalize();
-            var angle = -Math.sign(segmentVector.y) * segmentVector.angleTo(new THREE.Vector3(1, 0, 0));
-            textMesh.rotation.z = angle + Math.PI;
-            var normalVector = segmentVector.clone();
-            normalVector.cross(new THREE.Vector3(0, 0, 1))
-            textMesh.position.x = -((segment.x0 + segment.x1 - segmentVector.x * width)/2 - normalVector.x * 1.5 * height);
-            textMesh.position.y = (segment.y0 + segment.y1 - segmentVector.y * width)/2 - normalVector.y * 1.5 * height;
-            textMesh.position.z = floorPlan.position.z + 0.001;
-            floorPlanGroup.add(textMesh)
-        });
+        if(segment.distanceTag != undefined) {
+            createText(segment.distanceTag).then(function (textMesh) {
+                textMesh.geometry.computeBoundingBox()
+                var height = textMesh.geometry.boundingBox.max.y - textMesh.geometry.boundingBox.min.y
+                var width = textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x
+                var segmentVector = new THREE.Vector3(segment.x1 - segment.x0, segment.y1 - segment.y0, 0);
+                segmentVector.normalize();
+                var angle = -Math.sign(segmentVector.y) * segmentVector.angleTo(new THREE.Vector3(1, 0, 0));
+                textMesh.rotation.z = angle + Math.PI;
+                var normalVector = segmentVector.clone();
+                normalVector.cross(new THREE.Vector3(0, 0, 1))
+                textMesh.position.x = -((segment.x0 + segment.x1 - segmentVector.x * width) / 2 - normalVector.x * 1.5 * height);
+                textMesh.position.y = (segment.y0 + segment.y1 - segmentVector.y * width) / 2 - normalVector.y * 1.5 * height;
+                textMesh.position.z = floorPlan.position.z + 0.001;
+                floorPlanGroup.add(textMesh)
+            });
+        }
     }
 
     return floorPlanGroup
@@ -329,8 +383,20 @@ function buildDoorMeshes(segment, openings) {
             door.position.x = -segment.width/2 + doorShape.offsetX
             door.position.y = -segment.height/2 + doorShape.offsetY
             door.position.z = -0.025;
-
-            doorGroup.add(door)
+            doorGroup.add(door);
+            // Label
+            var tag = (opening.name == undefined) ? opening.typeIdentifier : opening.name;
+            if(tag != undefined) {
+                createText(tag).then(function(textMesh) {
+                    textMesh.geometry.computeBoundingBox()
+                    var height = textMesh.geometry.boundingBox.max.y - textMesh.geometry.boundingBox.min.y
+                    var width = textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x
+                    textMesh.position.x = -width/2
+                    textMesh.position.y = -height
+                    textMesh.position.z = 0.05
+                    doorGroup.add(textMesh)
+                });
+            }
         }
     }
     return doorGroup
@@ -378,8 +444,23 @@ function buildWindowMeshes(segment, openings) {
             window.position.x = -segment.width/2 + windowGeometry.offsetX
             window.position.y = -segment.height/2 + windowGeometry.offsetY
             window.position.z = -0.025;
-
             windowGroup.add(window)
+            // Label
+            var tag = (opening.name == undefined) ? opening.typeIdentifier : opening.name;
+            if(tag != undefined) {
+                console.log("func", tag, windowGeometry.width, windowGeometry.height, windowGeometry.offsetX,windowGeometry.offsetY)
+                createText(tag).then(function(textMesh) {
+                    textMesh.geometry.computeBoundingBox()
+                    var height = textMesh.geometry.boundingBox.max.y - textMesh.geometry.boundingBox.min.y
+                    var width = textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x
+                    console.log("then", tag, windowGeometry.width, windowGeometry.height, windowGeometry.offsetX,windowGeometry.offsetY, width)
+                    textMesh.position.x = -segment.width/2 + windowGeometry.offsetX + windowGeometry.width/2; // - width/2;
+                    textMesh.position.y = -segment.height/2 + windowGeometry.offsetY + windowGeometry.height/2; // - height/2;
+                    textMesh.position.z = 0.05
+                    windowGroup.add(textMesh)
+                });
+                console.log("chug")
+            }
         }
     }
     return windowGroup
@@ -414,6 +495,7 @@ function getEmbeddedObjectGeometry(object, segment, thickness) {
     const baseX = object.segments[0].x0;
     const baseY = object.segments[0].y0;
     const baseZ = object.segments[0].z0;
+    var width, height;
     // Create shape
     var positions = [];
     for ([index, objectSegment] of object.segments.entries()) {
@@ -424,6 +506,10 @@ function getEmbeddedObjectGeometry(object, segment, thickness) {
         }
         var x1 = Math.cos(angle)*(objectSegment.x1-baseX) - Math.sin(angle)*(objectSegment.y1-baseY);
         var y1 = objectSegment.z1 - baseZ
+        if (index == 1) {
+            width = x1;
+            height = y1;
+        }
         positions.push(new THREE.Vector2(x1, y1));
     }
     // Create geometry
@@ -442,7 +528,9 @@ function getEmbeddedObjectGeometry(object, segment, thickness) {
     return {
         geometry: objectGeometry,
         offsetX: offsetX,
-        offsetY: offsetY
+        offsetY: offsetY,
+        width: width,
+        height: height
     }
 }
 

@@ -6,7 +6,8 @@ const textSize = 0.1;
 // MATERIALS
 // Ground material
 const groundMaterial = new THREE.MeshPhongMaterial({
-    color: 0x98FB98,
+    //color: 0x98FB98,
+    color: 	0xECECEC,
     shininess: 0.1,
     opacity: 1
 });
