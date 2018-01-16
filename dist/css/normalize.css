@@ -5,7 +5,7 @@
 
 /**
  * 1. Correct the line height in all browsers.
- * 2. Prevent adjustments of font size after orientation changes in
+ * 2. Prevent adjustments of globalFont size after orientation changes in
  *    IE on Windows Phone and in iOS.
  */
 
@@ -40,7 +40,7 @@ section {
 }
 
 /**
- * Correct the font size and margin on `h1` elements within `section` and
+ * Correct the globalFont size and margin on `h1` elements within `section` and
  * `article` contexts in Chrome, Firefox, and Safari.
  */
 
@@ -83,8 +83,8 @@ hr {
 }
 
 /**
- * 1. Correct the inheritance and scaling of font size in all browsers.
- * 2. Correct the odd `em` font sizing in all browsers.
+ * 1. Correct the inheritance and scaling of globalFont size in all browsers.
+ * 2. Correct the odd `em` globalFont sizing in all browsers.
  */
 
 pre {
@@ -126,7 +126,7 @@ strong {
 }
 
 /**
- * Add the correct font weight in Chrome, Edge, and Safari.
+ * Add the correct globalFont weight in Chrome, Edge, and Safari.
  */
 
 b,
@@ -135,8 +135,8 @@ strong {
 }
 
 /**
- * 1. Correct the inheritance and scaling of font size in all browsers.
- * 2. Correct the odd `em` font sizing in all browsers.
+ * 1. Correct the inheritance and scaling of globalFont size in all browsers.
+ * 2. Correct the odd `em` globalFont sizing in all browsers.
  */
 
 code,
@@ -147,7 +147,7 @@ samp {
 }
 
 /**
- * Add the correct font style in Android 4.3-.
+ * Add the correct globalFont style in Android 4.3-.
  */
 
 dfn {
@@ -164,7 +164,7 @@ mark {
 }
 
 /**
- * Add the correct font size in all browsers.
+ * Add the correct globalFont size in all browsers.
  */
 
 small {
@@ -233,7 +233,7 @@ svg:not(:root) {
    ========================================================================== */
 
 /**
- * 1. Change the font styles in all browsers (opinionated).
+ * 1. Change the globalFont styles in all browsers (opinionated).
  * 2. Remove the margin in Firefox and Safari.
  */
 
@@ -387,7 +387,7 @@ textarea {
 
 /**
  * 1. Correct the inability to style clickable types in iOS and Safari.
- * 2. Change font properties to `inherit` in Safari.
+ * 2. Change globalFont properties to `inherit` in Safari.
  */
 
 ::-webkit-file-upload-button {

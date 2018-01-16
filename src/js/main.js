@@ -6,26 +6,35 @@ var roomData = JSON.parse(andyOffice.rooms);
 if (roomData.length == 0) exit(); // Bail if no rooms
 
 // Global font
-var font;
+var globalFont;
 
 // scene .. NOTE WILL MOVE LATER
 const scene = new THREE.Scene();
 
-for (const room of roomData) {
-    if (room.roomObjects.length == 0) exit(); // Bail if no objects
+var ceilingHeight, roomObjects, floorPlan, walls, objects
 
-    // Create objects and add to scene
-    var ceilingHeight = room.ceilingHeight;
-    var roomObjects = preprocessObjects(room.roomObjects);
-    var floorPlan = buildFloorPlan(roomObjects); // Mesh
-    var walls =  buildWalls(roomObjects, ceilingHeight); // Mesh
-    var objects =  buildObjects(roomObjects); // Mesh
+var loader = new THREE.FontLoader();
+loader.load(textFont, function (response) {
+    globalFont = response;
+    for (const room of roomData) {
+        if (room.roomObjects.length == 0) exit(); // Bail if no objects
 
-    addBackgroundToScene(scene)
-    addFloorplanToScene(scene, floorPlan);
-    addWallsToScene(scene, walls)
-    addObjectsToScene(scene, objects)
-}
+        // Create objects and add to scene
+        ceilingHeight = room.ceilingHeight;
+        roomObjects = preprocessObjects(room.roomObjects);
+        floorPlan = buildFloorPlan(roomObjects); // Mesh
+        walls =  buildWalls(roomObjects, ceilingHeight); // Mesh
+        objects =  buildObjects(roomObjects); // Mesh
+
+        addBackgroundToScene(scene)
+        addFloorplanToScene(scene, floorPlan);
+        addWallsToScene(scene, walls)
+        addObjectsToScene(scene, objects)
+
+        exportScene(scene)
+    }
+})
+
 
 function preprocessObjects(roomObjects) {
     // Get elevation (z)
@@ -84,8 +93,7 @@ function buildObjects(roomObjects) {
                 || object.typeIdentifier == "window"
                 || object.typeIdentifier == "floorPlan"
                 || object.typeIdentifier == "ceiling")) {
-            console.log(object.typeIdentifier)
-            var objectMesh
+            var objectMesh;
             if(object.orientationIdentifier == "horizontal") {
                 objectMesh = parseHorizontalObject(object)
             } else if (object.orientationIdentifier == "vertical") {
@@ -125,15 +133,14 @@ function parseHorizontalObject(object) {
     if(tag != undefined) {
         var tangentVector = new THREE.Vector3(1, 0, 0)
         var normalVector = new THREE.Vector3(0, 0, 1)
-        createText(tag).then(function(textMesh) {
-            textMesh.geometry.computeBoundingBox()
-            var height = textMesh.geometry.boundingBox.max.y - textMesh.geometry.boundingBox.min.y
-            var width = textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x
-            textMesh.position.x = -(xMed/counter + width/2);
-            textMesh.position.y = yMed/counter;
-            textMesh.position.z = zMed+0.001;
-            objectGroup.add(textMesh)
-        });
+        var textMesh = createText(tag)
+        textMesh.geometry.computeBoundingBox()
+        var height = textMesh.geometry.boundingBox.max.y - textMesh.geometry.boundingBox.min.y
+        var width = textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x
+        textMesh.position.x = -(xMed/counter + width/2);
+        textMesh.position.y = yMed/counter;
+        textMesh.position.z = zMed+0.001;
+        objectGroup.add(textMesh)
     }
     return objectGroup;
 }
@@ -190,17 +197,16 @@ function parseVerticalObject(object) {
         tangentVector.normalize()
         var normalVector = tangentVector.clone();
         normalVector.cross(new THREE.Vector3(0, 0, 1))
-        createText(tag).then(function(textMesh) {
-            textMesh.geometry.computeBoundingBox()
-            var height = textMesh.geometry.boundingBox.max.y - textMesh.geometry.boundingBox.min.y
-            var width = textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x
-            textMesh.rotation.x = Math.PI/2;
-            textMesh.rotation.y = angle + Math.PI;
-            textMesh.position.x = -(xMed/counter - tangentVector.x*width/2 - normalVector.x*0.01);
-            textMesh.position.y = yMed/counter - tangentVector.y*width/2 - normalVector.y*0.01;
-            textMesh.position.z = zMed/counter - height
-            objectGroup.add(textMesh)
-        });
+        var textMesh = createText(tag)
+        textMesh.geometry.computeBoundingBox()
+        var height = textMesh.geometry.boundingBox.max.y - textMesh.geometry.boundingBox.min.y
+        var width = textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x
+        textMesh.rotation.x = Math.PI/2;
+        textMesh.rotation.y = angle + Math.PI;
+        textMesh.position.x = -(xMed/counter - tangentVector.x*width/2 - normalVector.x*0.01);
+        textMesh.position.y = yMed/counter - tangentVector.y*width/2 - normalVector.y*0.01;
+        textMesh.position.z = zMed/counter - height
+        objectGroup.add(textMesh)
     }
     return objectGroup
 }
@@ -269,21 +275,20 @@ function parseSegmentsToFloorplan(segments) {
     // Labels
     for (const segment of segments) {
         if(segment.distanceTag != undefined) {
-            createText(segment.distanceTag).then(function (textMesh) {
-                textMesh.geometry.computeBoundingBox()
-                var height = textMesh.geometry.boundingBox.max.y - textMesh.geometry.boundingBox.min.y
-                var width = textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x
-                var segmentVector = new THREE.Vector3(segment.x1 - segment.x0, segment.y1 - segment.y0, 0);
-                segmentVector.normalize();
-                var angle = -Math.sign(segmentVector.y) * segmentVector.angleTo(new THREE.Vector3(1, 0, 0));
-                textMesh.rotation.z = angle + Math.PI;
-                var normalVector = segmentVector.clone();
-                normalVector.cross(new THREE.Vector3(0, 0, 1))
-                textMesh.position.x = -((segment.x0 + segment.x1 - segmentVector.x * width) / 2 - normalVector.x * 1.5 * height);
-                textMesh.position.y = (segment.y0 + segment.y1 - segmentVector.y * width) / 2 - normalVector.y * 1.5 * height;
-                textMesh.position.z = floorPlan.position.z + 0.001;
-                floorPlanGroup.add(textMesh)
-            });
+            var textMesh = createText(segment.distanceTag)
+            textMesh.geometry.computeBoundingBox()
+            var height = textMesh.geometry.boundingBox.max.y - textMesh.geometry.boundingBox.min.y
+            var width = textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x
+            var segmentVector = new THREE.Vector3(segment.x1 - segment.x0, segment.y1 - segment.y0, 0);
+            segmentVector.normalize();
+            var angle = -Math.sign(segmentVector.y) * segmentVector.angleTo(new THREE.Vector3(1, 0, 0));
+            textMesh.rotation.z = angle + Math.PI;
+            var normalVector = segmentVector.clone();
+            normalVector.cross(new THREE.Vector3(0, 0, 1))
+            textMesh.position.x = -((segment.x0 + segment.x1 - segmentVector.x * width) / 2 - normalVector.x * 1.5 * height);
+            textMesh.position.y = (segment.y0 + segment.y1 - segmentVector.y * width) / 2 - normalVector.y * 1.5 * height;
+            textMesh.position.z = floorPlan.position.z + 0.001;
+            floorPlanGroup.add(textMesh)
         }
     }
 
@@ -374,28 +379,27 @@ function buildDoorMeshes(segment, openings) {
     var doorGroup = new THREE.Group();
     for (opening of openings) {
         if (opening.typeIdentifier == "door")  {
-            var doorShape = getEmbeddedObjectGeometry(opening, segment, 0.05)
+            var doorGeometry = getEmbeddedObjectGeometry(opening, segment, 0.05)
             var doorOpenings = getOpeningsForDoor(opening, openings)
             for (doorOpening of doorOpenings) {
-                doorShape = addHoleToShape(doorShape, segment, doorOpening)
+                doorGeometry = addHoleToShape(doorGeometry, segment, doorOpening)
             }
-            var door = new THREE.Mesh(doorShape.geometry, doorMaterial);
-            door.position.x = -segment.width/2 + doorShape.offsetX
-            door.position.y = -segment.height/2 + doorShape.offsetY
+            var door = new THREE.Mesh(doorGeometry.geometry, doorMaterial);
+            door.position.x = -segment.width/2 + doorGeometry.offsetX
+            door.position.y = -segment.height/2 + doorGeometry.offsetY
             door.position.z = -0.025;
             doorGroup.add(door);
             // Label
             var tag = (opening.name == undefined) ? opening.typeIdentifier : opening.name;
             if(tag != undefined) {
-                createText(tag).then(function(textMesh) {
-                    textMesh.geometry.computeBoundingBox()
-                    var height = textMesh.geometry.boundingBox.max.y - textMesh.geometry.boundingBox.min.y
-                    var width = textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x
-                    textMesh.position.x = -width/2
-                    textMesh.position.y = -height
-                    textMesh.position.z = 0.05
-                    doorGroup.add(textMesh)
-                });
+                var textMesh = createText(tag);
+                textMesh.geometry.computeBoundingBox()
+                var height = textMesh.geometry.boundingBox.max.y - textMesh.geometry.boundingBox.min.y
+                var width = textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x
+                textMesh.position.x = -segment.width/2 + doorGeometry.offsetX + doorGeometry.width/2 - width/2;
+                textMesh.position.y = -segment.height/2 + doorGeometry.offsetY + doorGeometry.height/2 - height/2;
+                textMesh.position.z = 0.05
+                doorGroup.add(textMesh)
             }
         }
     }
@@ -448,18 +452,14 @@ function buildWindowMeshes(segment, openings) {
             // Label
             var tag = (opening.name == undefined) ? opening.typeIdentifier : opening.name;
             if(tag != undefined) {
-                console.log("func", tag, windowGeometry.width, windowGeometry.height, windowGeometry.offsetX,windowGeometry.offsetY)
-                createText(tag).then(function(textMesh) {
-                    textMesh.geometry.computeBoundingBox()
-                    var height = textMesh.geometry.boundingBox.max.y - textMesh.geometry.boundingBox.min.y
-                    var width = textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x
-                    console.log("then", tag, windowGeometry.width, windowGeometry.height, windowGeometry.offsetX,windowGeometry.offsetY, width)
-                    textMesh.position.x = -segment.width/2 + windowGeometry.offsetX + windowGeometry.width/2; // - width/2;
-                    textMesh.position.y = -segment.height/2 + windowGeometry.offsetY + windowGeometry.height/2; // - height/2;
-                    textMesh.position.z = 0.05
-                    windowGroup.add(textMesh)
-                });
-                console.log("chug")
+                var textMesh = createText(tag);
+                textMesh.geometry.computeBoundingBox()
+                var height = textMesh.geometry.boundingBox.max.y - textMesh.geometry.boundingBox.min.y
+                var width = textMesh.geometry.boundingBox.max.x - textMesh.geometry.boundingBox.min.x
+                textMesh.position.x = -segment.width/2 + windowGeometry.offsetX + windowGeometry.width/2 - width/2;
+                textMesh.position.y = -segment.height/2 + windowGeometry.offsetY + windowGeometry.height/2 - height/2;
+                textMesh.position.z = 0.05
+                windowGroup.add(textMesh)
             }
         }
     }
@@ -561,28 +561,11 @@ function addObjectsToScene(scene, objects) {
 }
 
 // Text
-
 function createText(text) {
-    return new Promise(function(resolve, reject) {
-        var font = loadFont().then(function (font) {
-            const textGeometry = createTextGeometry(text, font)
-            const textMaterial = new THREE.MeshStandardMaterial({color: 0x000000});
-            resolve(new THREE.Mesh(textGeometry, textMaterial));
-        });
-    });
-}
-
-function loadFont() {
-    return new Promise(function(resolve, reject){
-        if(font == undefined) {
-            var loader = new THREE.FontLoader();
-            loader.load('js/fonts/helvetiker_regular.typeface.json', function (response) {
-                resolve(response);
-            })
-        } else {
-            resolve(font)
-        }
-    })
+    const textGeometry = createTextGeometry(text, globalFont)
+    const textMaterial = new THREE.MeshStandardMaterial({color: 0x000000});
+    const textMesh = new THREE.Mesh(textGeometry, textMaterial)
+    return textMesh;
 }
 
 function createTextGeometry(text, font) {
@@ -670,15 +653,17 @@ function save( blob, filename ) {
 }
 
 
-// /////// GLTF
-// var exporter = new THREE.GLTFExporter();
-//
-// // Parse the input and generate the glTF output
-// var options={}
-// exporter.parse( scene, function ( gltf ) {
-//     var output = JSON.stringify( gltf, null, 2 );
-//     saveString( output, 'scene.gltf' );
-// }, options );
+/////// GLTF
+function exportScene(scene) {
+    var exporter = new THREE.GLTFExporter();
+
+// Parse the input and generate the glTF output
+    var options = {binary: false}
+    exporter.parse(scene, function (gltf) {
+        var output = JSON.stringify(gltf, null, 2);
+        saveString(output, 'scene.gltf');
+    }, options);
+}
 
 // /////// OBJ
 // var exporter = new THREE.OBJExporter();

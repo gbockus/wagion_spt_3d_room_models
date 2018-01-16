@@ -1,5 +1,6 @@
 
 // Constants
+const textFont = 'js/fonts/helvetiker_regular.typeface.json';
 const textSize = 0.1;
 
 
