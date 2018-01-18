@@ -31,7 +31,7 @@ loader.load(textFont, function (response) {
         addWallsToScene(scene, walls)
         addObjectsToScene(scene, objects)
 
-        exportScene(scene)
+        //setTimeout(function(){ exportGLTF(scene); }, 5000);
     }
 })
 
@@ -654,21 +654,23 @@ function save( blob, filename ) {
 
 
 /////// GLTF
-function exportScene(scene) {
+function exportGLTF(scene) {
     var exporter = new THREE.GLTFExporter();
 
 // Parse the input and generate the glTF output
     var options = {binary: false}
     exporter.parse(scene, function (gltf) {
-        var output = JSON.stringify(gltf, null, 2);
+        var output = JSON.stringify(gltf, null, 1);
         saveString(output, 'scene.gltf');
     }, options);
 }
 
 // /////// OBJ
-// var exporter = new THREE.OBJExporter();
-// var result = exporter.parse( scene );
-// saveString( result, 'scene.obj' );
+function exportOBJ(scene) {
+    var exporter = new THREE.OBJExporter();
+    var result = exporter.parse( scene );
+    saveString( result, 'scene.obj' );
+}
 
 
 
