@@ -51,6 +51,7 @@ roomModelViewer.directive("roomModelView", ["roomModel", function(roomModel) {
             animate();
 
             function animate() {
+                console.log(roomModel)
                 requestAnimationFrame(animate);
                 controls.update();
                 render();
@@ -83,31 +84,46 @@ roomModelViewer.factory("roomModel", function() {
     if (roomData.length == 0) exit(); // Bail if no rooms
 
     // scene .. NOTE WILL MOVE LATER
-    const scene = new THREE.Scene();
+    roomModel.scene = new THREE.Scene();
 
     var ceilingHeight, roomObjects, floorPlan, walls, objects
 
     var loader = new THREE.FontLoader();
-    loader.load(textFont, function (response) {
-        roomModel.font = response;
-        for (const room of roomData) {
-            if (room.roomObjects.length == 0) exit(); // Bail if no objects
+    loader.load(
+        textFont,
+        function (response) {
+            roomModel.font = response;
+            for (const room of roomData) {
+                if (room.roomObjects.length == 0) exit(); // Bail if no objects
 
-            // Create objects and add to scene
-            ceilingHeight = room.ceilingHeight;
-            roomObjects = preprocessObjects(room.roomObjects);
-            floorPlan = buildFloorPlan(roomObjects); // Mesh
-            walls = buildWalls(roomObjects, ceilingHeight); // Mesh
-            objects = buildObjects(roomObjects); // Mesh
+                // Create objects and add to scene
+                ceilingHeight = room.ceilingHeight;
+                roomObjects = preprocessObjects(room.roomObjects);
+                floorPlan = buildFloorPlan(roomObjects); // Mesh
+                walls = buildWalls(roomObjects, ceilingHeight); // Mesh
+                objects = buildObjects(roomObjects); // Mesh
 
-            addBackgroundToScene(scene)
-            addFloorplanToScene(scene, floorPlan);
-            addWallsToScene(scene, walls)
-            addObjectsToScene(scene, objects)
+                addBackgroundToScene(roomModel.scene)
+                addFloorplanToScene(roomModel.scene, floorPlan);
+                addWallsToScene(roomModel.scene, walls)
+                addObjectsToScene(roomModel.scene, objects)
 
-            //setTimeout(function(){ exportGLTF(scene); }, 5000);
+                roomModel.ceilingHeight = ceilingHeight;
+                roomModel.roomObjects = roomObjects;
+                roomModel.floorPlan = floorPlan;
+                roomModel.walls = walls;
+                roomModel.objects = objects;
+
+                //setTimeout(function(){ exportGLTF(scene); }, 5000);
+            }
+        },
+        function (xhr) {
+            console.log( (xhr.loaded / xhr.total * 100) + '% loaded' );
+        },
+        function (xhr) {
+            console.log("error")
         }
-    })
+    )
 
 
     function preprocessObjects(roomObjects) {
@@ -690,7 +706,6 @@ roomModelViewer.factory("roomModel", function() {
         saveString(result, 'scene.obj');
     }
 
-    roomModel.scene = scene;
     return roomModel;
 })
 
