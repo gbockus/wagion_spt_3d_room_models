@@ -1,8 +1,46 @@
 
 var roomModelViewer = angular.module("roomModelViewer", []);
 
-roomModelViewer.controller("roomModelViewController", function($scope) {
-});
+roomModelViewer.controller("roomModelViewController", ["roomModel", "$scope", function(roomModel, $scope) {
+
+    var scene = roomModel.scene;
+
+    /////// GLTF Export
+    $scope.exportGLTF = function() {
+        var exporter = new THREE.GLTFExporter();
+
+        // Parse the input and generate the glTF output
+        var options = {binary: false}
+        exporter.parse(scene, function (gltf) {
+            var output = JSON.stringify(gltf, null, 1);
+            saveString(output, 'scene.gltf');
+        }, options);
+    }
+
+    /////// OBJ Export
+    $scope.exportOBJ = function() {
+        var exporter = new THREE.OBJExporter();
+        var result = exporter.parse(scene);
+        saveString(result, 'scene.obj');
+    }
+
+    // Support
+    var link = document.createElement('a');
+    link.style.display = 'none';
+    document.body.appendChild(link); // Firefox workaround, see #6594
+
+    // Savstring Function
+    function saveString(text, filename) {
+        save(new Blob([text], {type: 'text/plain'}), filename);
+    }
+
+    function save(blob, filename) {
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        link.click();
+    }
+
+}]);
 
 roomModelViewer.directive("roomModelView", ["roomModel", function(roomModel) {
 
@@ -12,7 +50,7 @@ roomModelViewer.directive("roomModelView", ["roomModel", function(roomModel) {
 
             var scene = roomModel.scene;
 
-            // renderer
+            // Renderer
             const renderer = new THREE.WebGLRenderer({antialias: true});
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setClearColor(0x20252f);
@@ -23,7 +61,7 @@ roomModelViewer.directive("roomModelView", ["roomModel", function(roomModel) {
                 renderer.render(scene, camera);
             }
 
-            // camera
+            // Camera
             const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
             camera.position.set(0, 0, 15);
             scene.add(camera);
@@ -51,13 +89,12 @@ roomModelViewer.directive("roomModelView", ["roomModel", function(roomModel) {
             animate();
 
             function animate() {
-                console.log(roomModel)
                 requestAnimationFrame(animate);
                 controls.update();
                 render();
             }
 
-            // Handle zoom
+            // Zoom handler
             function onResize() {
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
@@ -78,16 +115,16 @@ roomModelViewer.factory("roomModel", function() {
 
     var roomModel = {}
 
-    // Preprocessing
-    // Parse room data
+    // Preprocessing - Static JSON
     var roomData = JSON.parse(andyOffice.rooms);
     if (roomData.length == 0) exit(); // Bail if no rooms
 
-    // scene .. NOTE WILL MOVE LATER
+    // Preprocessing - Live JSON
+
+    // Scene
     roomModel.scene = new THREE.Scene();
 
-    var ceilingHeight, roomObjects, floorPlan, walls, objects
-
+    // ** Scene Construction **
     var loader = new THREE.FontLoader();
     loader.load(
         textFont,
@@ -97,11 +134,11 @@ roomModelViewer.factory("roomModel", function() {
                 if (room.roomObjects.length == 0) exit(); // Bail if no objects
 
                 // Create objects and add to scene
-                ceilingHeight = room.ceilingHeight;
-                roomObjects = preprocessObjects(room.roomObjects);
-                floorPlan = buildFloorPlan(roomObjects); // Mesh
-                walls = buildWalls(roomObjects, ceilingHeight); // Mesh
-                objects = buildObjects(roomObjects); // Mesh
+                var ceilingHeight = room.ceilingHeight;
+                var roomObjects = preprocessObjects(room.roomObjects);
+                var floorPlan = buildFloorPlan(roomObjects); // Mesh
+                var walls = buildWalls(roomObjects, ceilingHeight); // Mesh
+                var objects = buildObjects(roomObjects); // Mesh
 
                 addBackgroundToScene(roomModel.scene)
                 addFloorplanToScene(roomModel.scene, floorPlan);
@@ -113,8 +150,6 @@ roomModelViewer.factory("roomModel", function() {
                 roomModel.floorPlan = floorPlan;
                 roomModel.walls = walls;
                 roomModel.objects = objects;
-
-                //setTimeout(function(){ exportGLTF(scene); }, 5000);
             }
         },
         function (xhr) {
@@ -126,6 +161,7 @@ roomModelViewer.factory("roomModel", function() {
     )
 
 
+    // Preprocessing
     function preprocessObjects(roomObjects) {
         // Get elevation (z)
         var elevation;
@@ -145,6 +181,7 @@ roomModelViewer.factory("roomModel", function() {
         return roomObjects
     }
 
+    // Floorplan
     function buildFloorPlan(roomObjects) {
         for (const object of roomObjects) {
             if (object.typeIdentifier == "floorPlan") {
@@ -154,6 +191,8 @@ roomModelViewer.factory("roomModel", function() {
         }
     }
 
+    // Openings
+    // NOTE: Need to adapt to app data
     function getOpenings(roomObjects) {
         var openings = [];
         for (const object of roomObjects) {
@@ -164,6 +203,7 @@ roomModelViewer.factory("roomModel", function() {
         return openings
     }
 
+    // Walls
     function buildWalls(roomObjects, ceilingHeight) {
         var walls = [];
         var openings = getOpenings(roomObjects); // Objects
@@ -175,6 +215,7 @@ roomModelViewer.factory("roomModel", function() {
         return walls
     }
 
+    // Objects
     function buildObjects(roomObjects) {
         var objectMeshes = [];
         for (const object of roomObjects) {
@@ -195,6 +236,7 @@ roomModelViewer.factory("roomModel", function() {
         return objectMeshes
     }
 
+    // Object building + Labeling - Horizontal
     function parseHorizontalObject(object) {
         var objectGroup = new THREE.Group();
         var positions = [];
@@ -235,6 +277,7 @@ roomModelViewer.factory("roomModel", function() {
         return objectGroup;
     }
 
+    // Object building + Labeling - Vertical
     function parseVerticalObject(object) {
         var objectGroup = new THREE.Group();
         // Rotation
@@ -302,6 +345,7 @@ roomModelViewer.factory("roomModel", function() {
     }
 
 
+    // Find Segments for Vertical Objects
     function getSegmentsVerticalObject(object) {
         var segmentMin, segmentMax;
         var distance = 0;
@@ -324,7 +368,7 @@ roomModelViewer.factory("roomModel", function() {
         }
     }
 
-    // NOTE: Need to bring segmentID in from APP to make this more robust
+    // NOT used ..
     function getSegmentForObject(object) {
         var objectMinX = Math.min(segment.x0, segment.x1);
         var objectMaxX = Math.max(segment.x0, segment.x1);
@@ -389,7 +433,7 @@ roomModelViewer.factory("roomModel", function() {
         walls = [];
         for (const segment of segments) {
             var segmentOpenings = getOpeningsForSegment(segment, ceilingHeight, openings);
-            var wall = buildWallFromSegment(segment, segmentOpenings);
+            var wall = buildWallFromSegment(segment, ceilingHeight, segmentOpenings);
             walls.push(wall)
         }
         return walls
@@ -419,7 +463,7 @@ roomModelViewer.factory("roomModel", function() {
         return segmentOpenings
     }
 
-    function buildWallFromSegment(segment, openings) {
+    function buildWallFromSegment(segment, ceilingHeight, openings) {
         var wallGroup = new THREE.Group();
         // Width and Height
         var segmentVector = new THREE.Vector3(segment.x1 - segment.x0, segment.y1 - segment.y0, 0);
@@ -629,7 +673,7 @@ roomModelViewer.factory("roomModel", function() {
         var ground = new THREE.Mesh(geometry, groundMaterial);
         ground.position.set(0, 0, -0.01);
         //ground.rotation.x = - Math.PI / 2;
-        scene.add(ground);
+        //scene.add(ground);
         scene.fog = new THREE.Fog(0xffffff, 0, 1000);
         scene.background = new THREE.Color(0xcce0ff);
     }
@@ -665,45 +709,6 @@ roomModelViewer.factory("roomModel", function() {
             height: 0
         });
         return textGeometry
-    }
-
-
-
-    // ////////////////////////////// EXPORT ///////////////////////////////////////////////////////////
-    // Support
-    var link = document.createElement('a');
-    link.style.display = 'none';
-    document.body.appendChild(link); // Firefox workaround, see #6594
-
-    // Savstring Function
-    function saveString(text, filename) {
-        save(new Blob([text], {type: 'text/plain'}), filename);
-    }
-
-    function save(blob, filename) {
-        link.href = URL.createObjectURL(blob);
-        link.download = filename;
-        link.click();
-    }
-
-
-    /////// GLTF
-    function exportGLTF(scene) {
-        var exporter = new THREE.GLTFExporter();
-
-        // Parse the input and generate the glTF output
-        var options = {binary: false}
-        exporter.parse(scene, function (gltf) {
-            var output = JSON.stringify(gltf, null, 1);
-            saveString(output, 'scene.gltf');
-        }, options);
-    }
-
-    // /////// OBJ
-    function exportOBJ(scene) {
-        var exporter = new THREE.OBJExporter();
-        var result = exporter.parse(scene);
-        saveString(result, 'scene.obj');
     }
 
     return roomModel;
