@@ -1,7 +1,5 @@
 
-var roomModelViewer = angular.module("roomModelViewer", []);
-
-roomModelViewer.controller("roomModelViewController", ["roomModel", "$scope", function(roomModel, $scope) {
+angular.module("roomModelViewer").controller("roomModelViewController", ["roomModel", "constant", "$scope", function(roomModel, constant, $scope) {
 
     var scene = roomModel.scene;
 
@@ -42,7 +40,8 @@ roomModelViewer.controller("roomModelViewController", ["roomModel", "$scope", fu
 
 }]);
 
-roomModelViewer.directive("roomModelView", ["roomModel", function(roomModel) {
+angular.module("roomModelViewer").directive("roomModelView", ["constant", "roomModel", function(constant, roomModel) {
+
 
     return {
         restrict: "A",
@@ -111,7 +110,7 @@ roomModelViewer.directive("roomModelView", ["roomModel", function(roomModel) {
     }
 }]);
 
-roomModelViewer.factory("roomModel", function() {
+angular.module("roomModelViewer").factory("roomModel", ["constant", function(constant) {
 
     var roomModel = {}
 
@@ -127,7 +126,7 @@ roomModelViewer.factory("roomModel", function() {
     // ** Scene Construction **
     var loader = new THREE.FontLoader();
     loader.load(
-        textFont,
+        constant.textFont,
         function (response) {
             roomModel.font = response;
             for (const room of roomData) {
@@ -258,7 +257,7 @@ roomModelViewer.factory("roomModel", function() {
             bevelEnabled: false
         };
         var geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-        var mesh = new THREE.Mesh(geometry, objectMaterial)
+        var mesh = new THREE.Mesh(geometry, constant.objectMaterial)
         objectGroup.add(mesh)
         // Label
         var tag = (object.name == undefined) ? object.typeIdentifier : object.name;
@@ -317,7 +316,7 @@ roomModelViewer.factory("roomModel", function() {
         //Geometry
         var geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
         // Mesh
-        var mesh = new THREE.Mesh(geometry, objectMaterial)
+        var mesh = new THREE.Mesh(geometry, constant.objectMaterial)
         mesh.rotation.x = Math.PI / 2;
         mesh.rotation.y = angle + Math.PI;
         mesh.position.x = -segments.min.x0; // Note X flip
@@ -403,7 +402,7 @@ roomModelViewer.factory("roomModel", function() {
         var shape = new THREE.Shape(positions);
         shape.closed = true;
         var geometry = new THREE.ShapeGeometry(shape);
-        var floorPlan = new THREE.Mesh(geometry, floorMaterial);
+        var floorPlan = new THREE.Mesh(geometry, constant.floorMaterial);
         floorPlanGroup.add(floorPlan)
 
         // Labels
@@ -505,7 +504,7 @@ roomModelViewer.factory("roomModel", function() {
             wallShape = addHoleToShape(wallShape, segment, opening);
         }
         // Create mesh
-        var wall = new THREE.Mesh(wallShape.geometry, wallMaterial);
+        var wall = new THREE.Mesh(wallShape.geometry, constant.wallMaterial);
         return wall
     }
 
@@ -518,7 +517,7 @@ roomModelViewer.factory("roomModel", function() {
                 for (doorOpening of doorOpenings) {
                     doorGeometry = addHoleToShape(doorGeometry, segment, doorOpening)
                 }
-                var door = new THREE.Mesh(doorGeometry.geometry, doorMaterial);
+                var door = new THREE.Mesh(doorGeometry.geometry, constant.doorMaterial);
                 door.position.x = -segment.width / 2 + doorGeometry.offsetX
                 door.position.y = -segment.height / 2 + doorGeometry.offsetY
                 door.position.z = -0.025;
@@ -578,7 +577,7 @@ roomModelViewer.factory("roomModel", function() {
         for (opening of openings) {
             if (opening.typeIdentifier == "window") {
                 var windowGeometry = getEmbeddedObjectGeometry(opening, segment, 0.05)
-                var window = new THREE.Mesh(windowGeometry.geometry, windowMaterial);
+                var window = new THREE.Mesh(windowGeometry.geometry, constant.windowMaterial);
                 window.position.x = -segment.width / 2 + windowGeometry.offsetX
                 window.position.y = -segment.height / 2 + windowGeometry.offsetY
                 window.position.z = -0.025;
@@ -670,7 +669,7 @@ roomModelViewer.factory("roomModel", function() {
 
     function addBackgroundToScene(scene) {
         var geometry = new THREE.PlaneBufferGeometry(35, 35);
-        var ground = new THREE.Mesh(geometry, groundMaterial);
+        var ground = new THREE.Mesh(geometry, constant.groundMaterial);
         ground.position.set(0, 0, -0.01);
         //ground.rotation.x = - Math.PI / 2;
         //scene.add(ground);
@@ -696,23 +695,22 @@ roomModelViewer.factory("roomModel", function() {
 
     // Text
     function createText(text) {
-        const textGeometry = createTextGeometry(text, roomModel.font)
-        const textMaterial = new THREE.MeshStandardMaterial({color: 0x000000});
-        const textMesh = new THREE.Mesh(textGeometry, textMaterial)
+        const textGeometry = createTextGeometry(text, roomModel.font);
+        const textMesh = new THREE.Mesh(textGeometry, constant.textMaterial)
         return textMesh;
     }
 
     function createTextGeometry(text, font) {
         textGeometry = new THREE.TextGeometry(text, {
             font: font,
-            size: textSize,
+            size: constant.textSize,
             height: 0
         });
         return textGeometry
     }
 
     return roomModel;
-})
+}]);
 
 
 
