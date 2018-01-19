@@ -30,6 +30,10 @@
     <body ng-app="roomModelViewer" ng-controller="roomModelViewController">
         <div room-model-view>
             <button type="button" ng-click="exportGLTF()">Export</button>
+            <label class="switch"> Show Labels
+                <input type="checkbox" ng-model="showLabels">
+                <span class="slider"></span>
+            </label>
         </div>
 
         <!-- Google Analytics: change UA-XXXXX-Y to be your site's ID. -->

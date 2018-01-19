@@ -12,11 +12,13 @@ angular.module("roomModelViewer").constant("constant", {
     }),
     floorMaterial: new THREE.MeshPhongMaterial({
         color: 0x6083c2,
+        //color: 0x30C4BD,
         side: THREE.DoubleSide,
         wireframe: false
     }),
     wallMaterial: new THREE.MeshPhongMaterial({
         color: 0x6083c2,
+        //color: 0x30C4BD,
         side: THREE.DoubleSide,
         wireframe: false,
         transparent: true,
@@ -24,6 +26,7 @@ angular.module("roomModelViewer").constant("constant", {
     }),
     doorMaterial: new THREE.MeshPhongMaterial({
         color: 0xF5DEB3,
+        //color: 0x8F5EC0,
         side: THREE.DoubleSide,
         wireframe: false,
         transparent: true,
@@ -39,6 +42,7 @@ angular.module("roomModelViewer").constant("constant", {
     }),
     objectMaterial: new THREE.MeshPhongMaterial({
         color: 0xB0E0E6,
+        //color: 0xEAD615,
         side: THREE.DoubleSide,
         wireframe: false
     }),
@@ -46,4 +50,6 @@ angular.module("roomModelViewer").constant("constant", {
         color: 0x000000
     })
 });
+
+
 

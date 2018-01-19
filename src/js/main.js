@@ -3,6 +3,17 @@ angular.module("roomModelViewer").controller("roomModelViewController", ["roomMo
 
     var scene = roomModel.scene;
 
+    /////// Show labels
+    $scope.showLabels = true
+
+    $scope.$watch('[showLabels]', function(){
+        scene.traverse(function(object) {
+            if(object.geometry != undefined && object.geometry.type == "TextGeometry") {
+                object.visible = $scope.showLabels
+            }
+        })
+    }, true );
+
     /////// GLTF Export
     $scope.exportGLTF = function() {
         var exporter = new THREE.GLTFExporter();
@@ -115,7 +126,7 @@ angular.module("roomModelViewer").factory("roomModel", ["constant", function(con
     var roomModel = {}
 
     // Preprocessing - Static JSON
-    var roomData = JSON.parse(andyOffice.rooms);
+    var roomData = JSON.parse(DJTest.rooms);
     if (roomData.length == 0) exit(); // Bail if no rooms
 
     // Preprocessing - Live JSON
