@@ -17,7 +17,7 @@
     'use strict';
 
     var moduleName = 'roomModelViewer',
-        module = angular.module(moduleName);
+        module = angular.module(moduleName, []);
 
     module.constant("constant", {
         textFont: 'js/fonts/helvetiker_regular.typeface.json',
