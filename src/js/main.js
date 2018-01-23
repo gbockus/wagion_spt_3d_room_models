@@ -125,10 +125,6 @@
         return {
             restrict: "A",
             link: function (scope, element, attrs) {
-                // $(document).ready(function () {
-                //     onResize();
-                //     window.addEventListener('resize', onResize);
-                // });
 
                 var scene = roomModel.scene,
                     innerWidth = 800,
