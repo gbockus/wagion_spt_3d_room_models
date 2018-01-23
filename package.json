@@ -58,12 +58,13 @@
     "LICENSE.txt",
     "package.json",
     "dist/",
+    "src/",
     "modernizr-config.json",
     "README.md"
   ],
   "repository": {
     "type": "git",
-    "url": "https://gbockus@bitbucket.org/djovanovi/spt_3d_room_models.git"
+    "url": "https://github.com/gbockus/wagion_spt_3d_room_models.git"
   },
   "dependencies": {
     "csg": "^1.0.1",
