@@ -68,7 +68,7 @@
   },
   "dependencies": {
     "csg": "^1.0.1",
-    "three": "^0.89.0",
+    "three": "^0.86.0",
     "three-csg": "^1.0.0",
     "three-trackballcontrols": "0.0.7"
   },
