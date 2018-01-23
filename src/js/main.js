@@ -69,44 +69,40 @@
         })
     });
 
-    module.controller("roomModelViewController", ["roomModel", "constant", "$scope", function(roomModel, constant, $scope) {
-
-        var scene = roomModel.scene;
-
-        /////// Show labels
-        $scope.showLabels = true
-
-        $scope.$watch('[showLabels]', function(){
-            scene.traverse(function(object) {
-                if(object.geometry != undefined && object.geometry.type == "TextGeometry") {
-                    object.visible = $scope.showLabels
-                }
-            })
-        }, true );
-
-        /////// GLTF Export
-        $scope.exportGLTF = function() {
-            var exporter = new THREE.GLTFExporter();
-
-            // Parse the input and generate the glTF output
-            var options = {binary: false}
-            exporter.parse(scene, function (gltf) {
-                var output = JSON.stringify(gltf, null, 1);
-                saveString(output, 'scene.gltf');
-            }, options);
-        }
-
-        /////// OBJ Export
-        $scope.exportOBJ = function() {
-            var exporter = new THREE.OBJExporter();
-            var result = exporter.parse(scene);
-            saveString(result, 'scene.obj');
-        }
-
+    module.factory("roomModelViewService", ["roomModel", "constant", function(roomModel, constant) {
         // Support
         var link = document.createElement('a');
         link.style.display = 'none';
         document.body.appendChild(link); // Firefox workaround, see #6594
+
+        var roomModelViewService = {};
+
+        /////// GLTF Export
+        roomModelViewService.exportGLTF = function() {
+            var exporter = new THREE.GLTFExporter();
+
+            // Parse the input and generate the glTF output
+            var options = {binary: false}
+            exporter.parse(roomModel.scene, function (gltf) {
+                var output = JSON.stringify(gltf, null, 1);
+                saveString(output, 'scene.gltf');
+            }, options);
+        };
+
+        /////// OBJ Export
+        roomModelViewService.exportOBJ = function() {
+            var exporter = new THREE.OBJExporter();
+            var result = exporter.parse(roomModel.scene);
+            saveString(result, 'scene.obj');
+        };
+
+        roomModelViewService.sceneTraverse = function(showLabels) {
+            roomModel.scene.traverse(function (object) {
+                if (object.geometry != undefined && object.geometry.type == "TextGeometry") {
+                    object.visible = showLabels;
+                }
+            });
+        };
 
         // Savstring Function
         function saveString(text, filename) {
@@ -119,6 +115,8 @@
             link.click();
         }
 
+        return roomModelViewService;
+
     }]);
 
     module.directive("roomModelView", ["constant", "roomModel", function(constant, roomModel) {
@@ -127,6 +125,11 @@
         return {
             restrict: "A",
             link: function (scope, element, attrs) {
+                // $(document).ready(function () {
+                //     onResize();
+                //     window.addEventListener('resize', onResize);
+                // });
+
                 var scene = roomModel.scene,
                     innerWidth = 800,
                     innerHeight = 628;
