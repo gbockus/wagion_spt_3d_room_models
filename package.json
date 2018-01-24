@@ -46,23 +46,31 @@
   },
   "homepage": "https://html5boilerplate.com/",
   "license": "MIT",
-  "name": "html5-boilerplate",
+  "name": "spt-3d-room-models",
   "scripts": {
     "build": "gulp build",
     "test": "gulp archive && mocha --require babel-core/register --reporter spec --timeout 5000"
   },
-  "version": "6.0.1",
+  "version": "0.0.2",
   "description": "A professional front-end template for building fast, robust, and adaptable web apps or sites.",
   "files": [
     "CHANGELOG.md",
     "LICENSE.txt",
     "package.json",
     "dist/",
+    "src/",
     "modernizr-config.json",
     "README.md"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/h5bp/html5-boilerplate.git"
-  }
+    "url": "https://github.com/gbockus/wagion_spt_3d_room_models.git"
+  },
+  "dependencies": {
+    "csg": "^1.0.1",
+    "three": "^0.86.0",
+    "three-csg": "^1.0.0",
+    "three-trackballcontrols": "0.0.7"
+  },
+  "main": "src/js/main.js"
 }
