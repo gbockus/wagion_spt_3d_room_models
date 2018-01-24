@@ -212,26 +212,27 @@
                 constant.textFont,
                 function (response) {
                     roomModel.font = response;
-                    for (const room of roomData) {
-                        if (room.roomObjects.length == 0) exit(); // Bail if no objects
+                    for (var i = 0; i < roomData.length; i++) {
+                        var room = roomData[i];
+                        if (room.roomObjects.length > 0) {
+                            // Create objects and add to scene
+                            var ceilingHeight = room.ceilingHeight;
+                            var roomObjects = preprocessObjects(room.roomObjects);
+                            var floorPlan = buildFloorPlan(roomObjects); // Mesh
+                            var walls = buildWalls(roomObjects, ceilingHeight); // Mesh
+                            var objects = buildObjects(roomObjects); // Mesh
 
-                        // Create objects and add to scene
-                        var ceilingHeight = room.ceilingHeight;
-                        var roomObjects = preprocessObjects(room.roomObjects);
-                        var floorPlan = buildFloorPlan(roomObjects); // Mesh
-                        var walls = buildWalls(roomObjects, ceilingHeight); // Mesh
-                        var objects = buildObjects(roomObjects); // Mesh
+                            addBackgroundToScene(roomModel.scene)
+                            addFloorplanToScene(roomModel.scene, floorPlan);
+                            addWallsToScene(roomModel.scene, walls)
+                            addObjectsToScene(roomModel.scene, objects)
 
-                        addBackgroundToScene(roomModel.scene)
-                        addFloorplanToScene(roomModel.scene, floorPlan);
-                        addWallsToScene(roomModel.scene, walls)
-                        addObjectsToScene(roomModel.scene, objects)
-
-                        roomModel.ceilingHeight = ceilingHeight;
-                        roomModel.roomObjects = roomObjects;
-                        roomModel.floorPlan = floorPlan;
-                        roomModel.walls = walls;
-                        roomModel.objects = objects;
+                            roomModel.ceilingHeight = ceilingHeight;
+                            roomModel.roomObjects = roomObjects;
+                            roomModel.floorPlan = floorPlan;
+                            roomModel.walls = walls;
+                            roomModel.objects = objects;
+                        }
                     }
                 },
                 function (xhr) {
@@ -247,10 +248,11 @@
             function preprocessObjects(roomObjects) {
                 // Get elevation (z)
                 var elevation;
-                for (const object of roomObjects) {
+                for (var i = 0; i < roomObjects.length; i++) {
+                    var object = roomObjects[i];
                     if (object.typeIdentifier == "floorPlan") {
                         elevation = object.segments[0].z0;
-                        break
+                        break;
                     }
                 }
                 // Reset elevations
@@ -265,31 +267,37 @@
 
             // Floorplan
             function buildFloorPlan(roomObjects) {
-                for (const object of roomObjects) {
+                var floorPlan;
+
+                for (var i = 0; i < roomObjects.length; i++) {
+                    var object = roomObjects[i];
                     if (object.typeIdentifier == "floorPlan") {
-                        var floorPlan = parseSegmentsToFloorplan(object.segments);
-                        return floorPlan
+                        floorPlan = parseSegmentsToFloorplan(object.segments);
                     }
                 }
+
+                return floorPlan;
             }
 
             // Openings
             // NOTE: Need to adapt to app data
             function getOpenings(roomObjects) {
                 var openings = [];
-                for (const object of roomObjects) {
+                for (var i = 0; i < roomObjects.length; i++) {
+                    var object = roomObjects[i];
                     if (object.typeIdentifier == "door" || object.typeIdentifier == "opening" || object.typeIdentifier == "window") {
-                        openings.push(object)
+                        openings.push(object);
                     }
                 }
-                return openings
+                return openings;
             }
 
             // Walls
             function buildWalls(roomObjects, ceilingHeight) {
                 var walls = [];
                 var openings = getOpenings(roomObjects); // Objects
-                for (const object of roomObjects) {
+                for (var i = 0; i < roomObjects.length; i++) {
+                    var object = roomObjects[i];
                     if (object.typeIdentifier == "ceiling") { // Building walls from ceiling segments
                         var walls = parseSegmentsToWalls(object.segments, ceilingHeight, openings);
                     }
@@ -300,7 +308,8 @@
             // Objects
             function buildObjects(roomObjects) {
                 var objectMeshes = [];
-                for (const object of roomObjects) {
+                for (var i = 0; i < roomObjects.length; i++) {
+                    var object = roomObjects[i];
                     if (!(object.typeIdentifier == "door"
                             || object.typeIdentifier == "opening"
                             || object.typeIdentifier == "window"
@@ -323,8 +332,9 @@
                 var objectGroup = new THREE.Group(),
                     positions = [],
                     xMed = 0, yMed = 0, zMed = 0, counter = 0,
-                    segment, index;
-                for ([index, segment] of object.segments.entries()) {
+                    segment;
+                for (var i = 0; i < object.segments.length; i++) {
+                    segment = object.segments[i];
                     if (segment.positionIdentifier == "base") {
                         positions.push(new THREE.Vector2(-segment.x1, segment.y1))
                         xMed += segment.x0;
@@ -369,8 +379,10 @@
                 const angle = -Math.sign(tangentVector.y) * tangentVector.angleTo(new THREE.Vector3(1, 0, 0));
                 // Shape
                 var positions = [];
-                var xMed = 0, yMed = 0, zMed = 0, counter = 0;
-                for ([index, segment] of object.segments.entries()) {
+                var xMed = 0, yMed = 0, zMed = 0, counter = 0,
+                    index, segment;
+                for (index = 0; index < object.segments.length; index++) {
+                    segment = object.segments[index];
                     if (segment.positionIdentifier == "base") {
                         if (index == 0) {
                             var x0 = Math.cos(angle) * (segment.x0 - segments.min.x0) - Math.sin(angle) * (segment.y0 - segments.min.y0);
@@ -430,9 +442,10 @@
 
             // Find Segments for Vertical Objects
             function getSegmentsVerticalObject(object) {
-                var segmentMin, segmentMax;
+                var segmentMin, segmentMax, index, segment;
                 var distance = 0;
-                for ([index, segment] of object.segments.entries()) {
+                for (index = 0; index < object.segments.length; index++) {
+                    segment = object.segments[index];
                     if (segment.positionIdentifier == "base") {
                         if (index == 0) {
                             segmentMin = segment
@@ -457,21 +470,26 @@
                 var objectMaxX = Math.max(segment.x0, segment.x1);
                 var objectMinY = Math.min(segment.y0, segment.y1);
                 var objectMaxY = Math.max(segment.y0, segment.y1);
-                for (const opening of openings) {
+                for (var i = 0; i < openings.length; i++) {
+                    var opening = openings[i];
                     var openingInWall = true;
-                    for (const openingSegments of opening.segments) {
+
+                    for (var j = 0; j < opening.segments.length; j++) {
+                        var openingSegments = opening.segments[j];
                         if (!((openingSegments.x0 >= segmentMinX && openingSegments.x0 <= segmentMaxX)
                                 && (openingSegments.x1 >= segmentMinX && openingSegments.x1 <= segmentMaxX)
                                 && (openingSegments.y0 >= segmentMinY && openingSegments.y0 <= segmentMaxY)
                                 && (openingSegments.y1 >= segmentMinY && openingSegments.y1 <= segmentMaxY))) {
-                            openingInWall = false
+                            openingInWall = false;
                         }
                     }
+
                     if (openingInWall) {
-                        segmentOpenings.push(opening)
+                        segmentOpenings.push(opening);
                     }
                 }
-                return segmentOpenings
+
+                return segmentOpenings;
             }
 
 
@@ -480,7 +498,8 @@
 
                 // Floorplan
                 var positions = [];
-                for (const segment of segments) {
+                for (var i = 0; i < segments.length; i++) {
+                    var segment = segments[i];
                     positions.push(new THREE.Vector2(-segment.x1, segment.y1)) // Note flip
                 }
                 var shape = new THREE.Shape(positions);
@@ -490,7 +509,8 @@
                 floorPlanGroup.add(floorPlan)
 
                 // Labels
-                for (const segment of segments) {
+                for (var i = 0; i < segments.length; i++) {
+                    var segment = segments[i];
                     if (segment.distanceTag != undefined) {
                         var textMesh = createText(segment.distanceTag)
                         textMesh.geometry.computeBoundingBox()
@@ -514,7 +534,8 @@
 
             function parseSegmentsToWalls(segments, ceilingHeight, openings) {
                 var walls = [];
-                for (const segment of segments) {
+                for (var i = 0; i < segments.length; i++) {
+                    var segment = segments[i];
                     var segmentOpenings = getOpeningsForSegment(segment, ceilingHeight, openings);
                     var wall = buildWallFromSegment(segment, ceilingHeight, segmentOpenings);
                     walls.push(wall)
@@ -529,9 +550,11 @@
                 var segmentMaxX = Math.max(segment.x0, segment.x1);
                 var segmentMinY = Math.min(segment.y0, segment.y1);
                 var segmentMaxY = Math.max(segment.y0, segment.y1);
-                for (const opening of openings) {
+                for (var i = 0; i < openings.length; i++) {
+                    var opening = openings[i];
                     var openingInWall = true;
-                    for (const openingSegments of opening.segments) {
+                    for (var j = 0; j < opening.segments.length; j++) {
+                        var openingSegments = opening.segments[j];
                         if (!((openingSegments.x0 >= segmentMinX && openingSegments.x0 <= segmentMaxX)
                                 && (openingSegments.x1 >= segmentMinX && openingSegments.x1 <= segmentMaxX)
                                 && (openingSegments.y0 >= segmentMinY && openingSegments.y0 <= segmentMaxY)
@@ -584,7 +607,8 @@
                     offsetX: 0,
                     offsetY: 0
                 }
-                for (var opening of openings) {
+                for (var i = 0; i < openings.length; i++) {
+                    var opening = openings[i];
                     wallShape = addHoleToShape(wallShape, segment, opening);
                 }
                 // Create mesh
@@ -595,12 +619,14 @@
             function buildDoorMeshes(segment, openings) {
                 var doorGroup = new THREE.Group(),
                     opening;
-                for (opening of openings) {
+                for (var i = 0; i < openings.length; i++) {
+                    opening = openings[i];
                     if (opening.typeIdentifier == "door") {
                         var doorGeometry = getEmbeddedObjectGeometry(opening, segment, 0.05)
                         var doorOpenings = getOpeningsForDoor(opening, openings)
-                        for (doorOpening of doorOpenings) {
-                            doorGeometry = addHoleToShape(doorGeometry, segment, doorOpening)
+                        for (var j = 0; j < doorOpenings.length; j++) {
+                            var doorOpening = doorOpenings[j];
+                            doorGeometry = addHoleToShape(doorGeometry, segment, doorOpening);
                         }
                         var door = new THREE.Mesh(doorGeometry.geometry, constant.doorMaterial);
                         door.position.x = -segment.width / 2 + doorGeometry.offsetX
@@ -631,7 +657,8 @@
                 var segmentMinY = door.segments[0].y0;
                 var segmentMaxY = door.segments[0].y0;
                 var doorSegment;
-                for (doorSegment of door.segments) {
+                for (var i = 0; i < door.segments.length; i++) {
+                    doorSegment = door.segments[i];
                     segmentMinX = Math.min(segmentMinX, doorSegment.x1);
                     segmentMaxX = Math.max(segmentMaxX, doorSegment.x1);
                     segmentMinY = Math.min(segmentMinY, doorSegment.y1);
@@ -639,10 +666,12 @@
                 }
 
                 var doorOpenings = [];
-                for (const opening of openings) {
+                for (var i = 0; i < openings.length; i++) {
+                    var opening = openings[i];
                     if (opening.typeIdentifier == "window") {
                         var openingInDoor = true;
-                        for (const openingSegment of opening.segments) {
+                        for (var j = 0; j < opening.segments.length; j++) {
+                            var openingSegment = opening.segments[j];
                             if (!((openingSegment.x0 >= segmentMinX && openingSegment.x0 <= segmentMaxX)
                                     && (openingSegment.x1 >= segmentMinX && openingSegment.x1 <= segmentMaxX)
                                     && (openingSegment.y0 >= segmentMinY && openingSegment.y0 <= segmentMaxY)
@@ -661,7 +690,8 @@
             function buildWindowMeshes(segment, openings) {
                 var windowGroup = new THREE.Group(),
                     opening;
-                for (opening of openings) {
+                for (var i = 0; i < openings.length; i++) {
+                    opening = openings[i];
                     if (opening.typeIdentifier == "window") {
                         var windowGeometry = getEmbeddedObjectGeometry(opening, segment, 0.05)
                         var window = new THREE.Mesh(windowGeometry.geometry, constant.windowMaterial);
@@ -719,7 +749,8 @@
                 // Create shape
                 var positions = [],
                     index, objectSegment;
-                for ([index, objectSegment] of object.segments.entries()) {
+                for (index = 0; index < object.segments.length; index++) {
+                    objectSegment = object.segments[index];
                     if (index == 0) {
                         var x0 = (new THREE.Vector2(objectSegment.x0 - baseX, objectSegment.y0 - baseY)).distanceTo(new THREE.Vector2());
                         var y0 = objectSegment.z0 - baseZ
@@ -770,13 +801,15 @@
             }
 
             function addWallsToScene(scene, walls) {
-                for (const wall of walls) {
+                for (var i = 0; i < walls.length; i++) {
+                    var wall = walls[i];
                     scene.add(wall)
                 }
             }
 
             function addObjectsToScene(scene, objects) {
-                for (const object of objects) {
+                for (var i = 0; i < objects.length; i++) {
+                    var object = objects[i];
                     scene.add(object)
                 }
             }
