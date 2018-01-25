@@ -147,7 +147,7 @@
                 scene.add(camera);
 
                 // Controls
-                const controls = new THREE.TrackballControls(camera);
+                const controls = new THREE.TrackballControls(camera, renderer.domElement);
                 controls.rotateSpeed = 5.0;
                 controls.zoomSpeed = 20.2;
                 controls.panSpeed = 3.0;
