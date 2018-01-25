@@ -198,10 +198,13 @@
     module.factory("roomModel", ["constant", function(constant) {
 
         var roomModel = {};
-        roomModel.init = function(project) {
+        roomModel.init = function(room) {
             // Preprocessing - Static JSON
-            var roomData = project.rooms;
-            if (roomData.length == 0) exit(); // Bail if no rooms
+            var roomData = room.roomObjects;
+            // Bail if no rooms
+            if (roomData.length === 0) {
+                return;
+            }
 
             // Scene
             this.scene = new THREE.Scene();
@@ -212,27 +215,24 @@
                 constant.textFont,
                 function (response) {
                     roomModel.font = response;
-                    for (var i = 0; i < roomData.length; i++) {
-                        var room = roomData[i];
-                        if (room.roomObjects.length > 0) {
-                            // Create objects and add to scene
-                            var ceilingHeight = room.ceilingHeight;
-                            var roomObjects = preprocessObjects(room.roomObjects);
-                            var floorPlan = buildFloorPlan(roomObjects); // Mesh
-                            var walls = buildWalls(roomObjects, ceilingHeight); // Mesh
-                            var objects = buildObjects(roomObjects); // Mesh
+                    if (room.roomObjects.length > 0) {
+                        // Create objects and add to scene
+                        var ceilingHeight = room.ceilingHeight;
+                        var roomObjects = preprocessObjects(room.roomObjects);
+                        var floorPlan = buildFloorPlan(roomObjects); // Mesh
+                        var walls = buildWalls(roomObjects, ceilingHeight); // Mesh
+                        var objects = buildObjects(roomObjects); // Mesh
 
-                            addBackgroundToScene(roomModel.scene)
-                            addFloorplanToScene(roomModel.scene, floorPlan);
-                            addWallsToScene(roomModel.scene, walls)
-                            addObjectsToScene(roomModel.scene, objects)
+                        addBackgroundToScene(roomModel.scene)
+                        addFloorplanToScene(roomModel.scene, floorPlan);
+                        addWallsToScene(roomModel.scene, walls)
+                        addObjectsToScene(roomModel.scene, objects)
 
-                            roomModel.ceilingHeight = ceilingHeight;
-                            roomModel.roomObjects = roomObjects;
-                            roomModel.floorPlan = floorPlan;
-                            roomModel.walls = walls;
-                            roomModel.objects = objects;
-                        }
+                        roomModel.ceilingHeight = ceilingHeight;
+                        roomModel.roomObjects = roomObjects;
+                        roomModel.floorPlan = floorPlan;
+                        roomModel.walls = walls;
+                        roomModel.objects = objects;
                     }
                 },
                 function (xhr) {
